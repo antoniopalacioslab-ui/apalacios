@@ -182,7 +182,7 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
     <div class="fg"><label class="fl">Correo electrónico</label><input class="fi" id="lem" type="email" placeholder="tu@correo.com"></div>
     <div class="fg"><label class="fl">Contraseña</label><input class="fi" id="lpw" type="password" placeholder="Tu contraseña"></div>
     <button class="btnL" id="blin" onclick="doLogin()">Entrar a la plataforma</button>
-    <p style="text-align:center;margin-top:14px;font-size:10.5px;color:var(--t3)">¿Sin acceso? <a href="mailto:antonio@apalacios.com.mx" style="color:var(--bl);font-weight:600">antonio@apalacios.com.mx</a></p>
+    <p style="text-align:center;margin-top:14px;font-size:10.5px;color:var(--t3)">¿Sin acceso? <a href="/cdn-cgi/l/email-protection#7b1a150f141512143b1a0b1a171a1812140855181416551603" style="color:var(--bl);font-weight:600"><span class="__cf_email__" data-cfemail="cbaaa5bfa4a5a2a48baabbaaa7aaa8a2a4b8e5a8a4a6e5a6b3">[email&#160;protected]</span></a></p>
   </div>
   <!-- AI Widget -->
   <div class="ai-widget">
@@ -215,6 +215,7 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
       <button class="ni" id="adm-ni-clientes" data-action="admview" data-id="clientes">🏢 Mis clientes</button>
       <button class="ni" id="adm-ni-directores" data-action="admview" data-id="directores">👤 Directores</button>
       <button class="ni" id="adm-ni-pipeline" data-action="admview" data-id="pipeline">📋 Pipeline</button>
+      <button class="ni" id="adm-ni-diagnostico" data-action="admview" data-id="diagnostico">🔍 Diagnóstico de resultados</button>
       <span class="ns">Proyecto activo</span>
       <div id="adm-proj-list"></div>
       <span class="ns" id="adm-ns-proj" style="display:none">Gestión del proyecto</span>
@@ -223,6 +224,7 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
       <button class="ni H" id="adm-ni-deptos" data-action="admview" data-id="deptos">👥 Departamentos</button>
       <button class="ni H" id="adm-ni-validar" data-action="admview" data-id="validar">✅ Validar docs <span class="nbdg" id="nb-pend"></span></button>
       <button class="ni H" id="adm-ni-reporte" data-action="admview" data-id="reporte">📊 Reporte / CSV</button>
+      <button class="ni" id="adm-ni-diagnostico" data-action="admview" data-id="diagnostico">🔍 Diagnóstico de resultados</button>
       <button class="ni" data-action="logout" style="color:rgba(255,100,100,.6);margin-top:12px">🚪 Cerrar sesión</button>
     </div>
   </div>
@@ -253,6 +255,7 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
       <button class="ni" id="ni-cli-docs" data-action="cliview" data-id="cli-docs">📁 Mis documentos</button>
       <button class="ni" id="ni-cli-dudas" data-action="cliview" data-id="cli-dudas">❓ Dudas y consultas</button>
       <button class="ni" id="ni-cli-vcall" data-action="cliview" data-id="cli-vcall">📹 Videollamada</button>
+      <button class="ni" id="adm-ni-diagnostico" data-action="admview" data-id="diagnostico">🔍 Diagnóstico de resultados</button>
       <button class="ni" data-action="logout" style="color:rgba(255,100,100,.6);margin-top:12px">🚪 Cerrar sesión</button>
     </div>
   </div>
@@ -387,8 +390,13 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
           </div>
         </div>
         <div class="fr">
-          <div class="fg2"><label class="fl2">Días para completar</label><input class="fi2" id="mr-di" type="number" placeholder="30" min="1" max="365"></div>
-          <div class="fg2"><label class="fl2">Fecha límite</label><input class="fi2" id="mr-fe" type="date"></div>
+          <div class="fg2"><label class="fl2">Días para completar</label><input class="fi2" id="mr-di" type="number" placeholder="30" min="1" max="365"></div></div><div class="fr"><div class="fg2"><label class="fl2">Hora límite de entrega</label><input class="fi2" id="mr-hora" type="time" placeholder="17:00"></div>
+          <div class="fg2"><label class="fl2">Fecha límite</label>
+            <div style="display:flex;gap:6px">
+              <input class="fi2" id="mr-fe" type="date" style="flex:2">
+              <input class="fi2" id="mr-hora" type="time" placeholder="09:00" style="flex:1" title="Hora límite">
+            </div>
+          </div>
         </div>
         <div class="fg2"><label class="fl2">Departamentos responsables</label>
           <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;padding:5px 8px;background:#EBF2FB;border-radius:7px;margin-bottom:5px;border:1px solid #93C5FD">
@@ -465,9 +473,68 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
   </div>
 </div>
 
+<!-- MODAL DIAGNÓSTICO -->
+<div class="ov" id="m-diag">
+  <div class="mo" style="width:560px">
+    <div class="moh">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="mot">🔍 Diagnóstico de resultados</div>
+          <div class="mos" id="diag-req-nm">Requisito</div>
+          <div style="font-size:9px;color:var(--t3)" id="diag-req-sys"></div>
+        </div>
+        <button class="btn bx bxs" data-action="close" data-id="m-diag">✕</button>
+      </div>
+    </div>
+    <div class="mob">
+      <div class="ib ib-p"><span>🔍</span><div>Este diagnóstico es de auditoría externa — independiente de los requisitos de inocuidad activos.</div></div>
+      <div class="fr">
+        <div class="fg2"><label class="fl2">Departamento evaluado *</label>
+          <select class="fsl" id="diag-depto">
+            <option value="">Selecciona departamento</option>
+            <option>Dirección General</option>
+            <option>Calidad e Inocuidad</option>
+            <option>Producción</option>
+            <option>Mantenimiento</option>
+            <option>Compras</option>
+            <option>Almacén</option>
+            <option>Recursos Humanos</option>
+            <option>Logística</option>
+            <option>Ventas</option>
+            <option>General / Toda la empresa</option>
+          </select>
+        </div>
+        <div class="fg2"><label class="fl2">Porcentaje de cumplimiento *</label>
+          <select class="fsl" id="diag-pct">
+            <option value="25">25% — Muy bajo / Sin evidencia</option>
+            <option value="50">50% — Parcial / En desarrollo</option>
+            <option value="75">75% — Avanzado / Con observaciones</option>
+            <option value="100">100% — Cumplido completamente</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg2"><label class="fl2">Observaciones de la auditoría</label>
+        <textarea class="fi2" id="diag-obs" rows="2" placeholder="¿Qué se encontró en la auditoría? Hallazgos, no conformidades, evidencias..."></textarea>
+      </div>
+      <div class="fr">
+        <div class="fg2"><label class="fl2">Tendencias</label>
+          <textarea class="fi2" id="diag-tend" rows="2" placeholder="¿Hacia dónde va el proceso? Mejorando, estancado, deteriorando..."></textarea>
+        </div>
+        <div class="fg2"><label class="fl2">Oportunidades de mejora</label>
+          <textarea class="fi2" id="diag-mejoras" rows="2" placeholder="Acciones recomendadas para cerrar las brechas..."></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn bx" data-action="close" data-id="m-diag">Cancelar</button>
+        <button class="btn bp" onclick="guardarDiag()">💾 Guardar diagnóstico</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
-<script data-cfasync="false">
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
 
 var _sb=window.supabase.createClient('https://kccghoqvtuvjkrztlxwj.supabase.co','sb_publishable_IzVOykPwbspygu9c2r02Ug_0xY3JnkW',{auth:{persistSession:true,autoRefreshToken:true,storageKey:'apcde-v2'}});
 var ADMIN='antonio@apalacios.com.mx';
@@ -477,11 +544,13 @@ var RQ={"s01": {"id": "s01", "sys": "SGIA", "name": "Especificaciones de product
 /* ── STATE ── */
 var CU=null,RL=null,ME=null,PJ=null;
 var DPS=[],SEM={},DOC={},HST=[],RID=null,FAC=null,CI=0;
-var PROJS=[],DIRS=[];
+var PROJS=[],DIRS=[],DIAGS=[];
 var COL=['#1B4F8A','#7C3AED','#16A34A','#DC2626','#D97706','#E07B1A','#0F766E','#BE185D'];
 
 /* ── INIT semaforos ── */
 Object.keys(RQ).forEach(function(id){SEM[id]={e:'gr',dp:[],di:30,fe:'',ins:'',hi:[],titular:'',estatus:'sin_revision',comunicados:[]};});
+// Ensure a02 exists
+if(!SEM['a02']) SEM['a02']={e:'gr',dp:[],di:30,fe:'',ins:'',hi:[],titular:'',estatus:'sin_revision',comunicados:[]};
 
 /* ── AUTH ── */
 async function init(){
@@ -524,6 +593,259 @@ function showScreen(s){
   if(s==='admin') initAdmin();
   if(s==='client') initClient();
   if(s==='dep') initDep();
+}
+
+
+/* ══════════════════════════════════════
+   DIAGNÓSTICO DE RESULTADOS
+══════════════════════════════════════ */
+var DIAG={};  // {req_id: {dept, responsable, pct, obs, tendencia, mejora, fecha}}
+var DIAG_HIST=[];  // History of all saved diagnostics
+
+function vDiagnostico(){
+  // Dashboard metrics
+  var total=Object.keys(DIAG).length;
+  var pcts=[25,50,75,100];
+  var byPct={25:0,50:0,75:0,100:0};
+  var byDept={};
+  Object.values(DIAG).forEach(function(d){
+    if(d.pct) byPct[d.pct]=(byPct[d.pct]||0)+1;
+    if(d.dept){if(!byDept[d.dept]) byDept[d.dept]={sum:0,cnt:0};byDept[d.dept].sum+=d.pct||0;byDept[d.dept].cnt++;}
+  });
+  var avgPct=total>0?Math.round(Object.values(DIAG).reduce(function(a,d){return a+(d.pct||0);},0)/total):0;
+  var docPct=Math.round(Object.values(DIAG).filter(function(d){return d.pct===100;}).length/Math.max(Object.keys(RQ).length,1)*100);
+
+  // Dept bar chart
+  var deptBars=Object.keys(byDept).map(function(d){
+    var avg=Math.round(byDept[d].sum/byDept[d].cnt);
+    var col=avg>=75?'var(--ok)':avg>=50?'var(--wn)':'var(--er)';
+    return '<div class="gantt-row"><div class="gantt-label">'+d+'</div>'+
+      '<div class="gantt-bar-wrap"><div class="gantt-bar" style="width:'+avg+'%;background:'+col+'">'+avg+'%</div></div>'+
+      '<div style="font-size:10px;font-weight:700;color:'+col+';width:35px;text-align:right">'+avg+'%</div></div>';
+  }).join('')||'<div style="color:var(--t3);font-size:12px">Llena el diagnóstico para ver métricas.</div>';
+
+  // Build req rows grouped by system
+  var grupos={SGIA:[],BPM:[],HACCP:[],'AUDITORÍA':[]};
+  Object.keys(RQ).forEach(function(id){if(grupos[RQ[id].sys]) grupos[RQ[id].sys].push(id);});
+
+  var reqRows='';
+  Object.keys(grupos).forEach(function(sys){
+    var sysCol={'SGIA':'var(--b2)','BPM':'var(--pu)','HACCP':'var(--ok)','AUDITORÍA':'var(--og)'}[sys]||'var(--bl)';
+    var sysAvg=grupos[sys].length>0?Math.round(grupos[sys].reduce(function(a,id){return a+(DIAG[id]?DIAG[id].pct||0:0);},0)/grupos[sys].length):0;
+    reqRows+='<div class="cd" style="margin-bottom:8px">'+
+      '<div class="ch" style="cursor:pointer" data-action="diagsys" data-sys="'+sys+'">'+
+        '<div class="ctt" style="color:'+sysCol+'">'+sys+' · '+sysAvg+'% promedio</div>'+
+        '<span style="color:var(--t3);font-size:11px">▼</span>'+
+      '</div>'+
+      '<div id="ds-'+sys.replace(/[^a-z]/gi,'')+'" >'+
+      grupos[sys].map(function(id){
+        var d=DIAG[id]||{};
+        var pct=d.pct||0;
+        var pctCol=pct===100?'pl-g':pct>=50?'pl-a':'pl-r';
+        return '<div style="padding:8px 0;border-bottom:1px solid var(--bd)">'+
+          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;align-items:start;margin-bottom:5px">'+
+            '<div><div style="font-size:11.5px;font-weight:600">'+RQ[id].name+'</div>'+
+            '<div style="font-size:9.5px;color:var(--t3)">'+( d.responsable?'Responsable: '+d.responsable:'Sin responsable asignado')+'</div></div>'+
+            '<div class="fg2"><label class="fl2">Departamento</label>'+
+              '<select class="fsl" id="dg-dept-'+id+'" style="font-size:10px">'+
+              '<option value="">Sin asignar</option>'+
+              DPS.map(function(dp){return '<option value="'+dp.n+'" '+(d.dept===dp.n?'selected':'')+'>'+dp.n+'</option>';}).join('')+
+              '</select>'+
+            '</div>'+
+            '<div class="fg2"><label class="fl2">% Cumplimiento</label>'+
+              '<select class="fsl" id="dg-pct-'+id+'" style="font-size:10px">'+
+              [0,25,50,75,100].map(function(p){return '<option value="'+p+'" '+(pct===p?'selected':'')+'>'+p+'%</option>';}).join('')+
+              '</select>'+
+              '<div class="pr" style="margin-top:4px"><div class="prf" style="width:'+pct+'%;background:'+(pct===100?'var(--ok)':pct>=50?'var(--wn)':'var(--er)')+'"></div></div>'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;justify-content:flex-end"><span class="pl '+pctCol+'">'+pct+'%</span></div>'+
+          '</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'+
+            '<div class="fg2"><label class="fl2">Observaciones</label><textarea class="fi2" id="dg-obs-'+id+'" rows="2" placeholder="Observaciones del diagnóstico..." style="font-size:10.5px">'+( d.obs||'')+'</textarea></div>'+
+            '<div class="fg2"><label class="fl2">Tendencias</label><textarea class="fi2" id="dg-tend-'+id+'" rows="2" placeholder="Tendencias identificadas..." style="font-size:10.5px">'+( d.tendencia||'')+'</textarea></div>'+
+            '<div class="fg2"><label class="fl2">Mejoras</label><textarea class="fi2" id="dg-mej-'+id+'" rows="2" placeholder="Oportunidades de mejora..." style="font-size:10.5px">'+( d.mejora||'')+'</textarea></div>'+
+          '</div>'+
+          '<div style="text-align:right;margin-top:4px"><button class="btn bp bxs" data-action="guardarDiag" data-id="'+id+'">💾 Guardar</button></div>'+
+        '</div>';
+      }).join('')+
+      '</div></div>';
+  });
+
+  return '<div class="ib ib-p"><span>🔍</span><div>Este diagnóstico es independiente de los requisitos de inocuidad. Registra el resultado de la <strong>auditoría externa</strong> por requisito, departamento y porcentaje de cumplimiento.</div></div>'+
+    '<div class="g4">'+
+      '<div class="kp"><div class="ks" style="background:var(--bl)"></div><div class="kl">Requisitos diagnosticados</div><div class="kv">'+total+'</div><div class="kn" style="color:var(--t3)">de '+Object.keys(RQ).length+'</div></div>'+
+      '<div class="kp"><div class="ks" style="background:var(--ok)"></div><div class="kl">100% cumplimiento</div><div class="kv" style="color:var(--ok)">'+(byPct[100]||0)+'</div></div>'+
+      '<div class="kp"><div class="ks" style="background:var(--wn)"></div><div class="kl">Promedio general</div><div class="kv">'+avgPct+'%</div></div>'+
+      '<div class="kp"><div class="ks" style="background:var(--pu)"></div><div class="kl">Documentados al 100%</div><div class="kv" style="color:var(--pu)">'+docPct+'%</div></div>'+
+    '</div>'+
+    '<div class="g2" style="margin-bottom:10px">'+
+      '<div class="cd"><div class="ch"><div class="ctt">📊 % Cumplimiento por departamento (Yo documento)</div></div>'+deptBars+'</div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">📋 Historial de diagnósticos guardados ('+DIAG_HIST.length+')</div><button class="btn bx bxs" onclick="exportDiag()">⬇ CSV</button></div>'+
+      (DIAG_HIST.length===0?'<div style="color:var(--t3);font-size:12px">Sin diagnósticos guardados aún.</div>':
+        DIAG_HIST.slice(0,5).map(function(h){return '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span>📋</span><div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+h.req+'</div><div style="font-size:9.5px;color:var(--t3)">'+h.dept+' · '+h.pct+'% · '+h.fecha+'</div></div><span class="pl '+(h.pct===100?'pl-g':h.pct>=50?'pl-a':'pl-r')+'">'+h.pct+'%</span></div>';}).join(''))+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">'+
+      '<button class="btn bpu" onclick="guardarTodoDiag()">💾 Guardar todo el diagnóstico</button>'+
+      '<button class="btn bx" onclick="exportDiag()">⬇ Exportar CSV</button>'+
+    '</div>'+
+    reqRows;
+}
+
+function toggleDiagSys(id){var el=document.getElementById(id);if(el)el.classList.toggle('H');}
+
+async function guardarDiag(id){
+  var dept=document.getElementById('dg-dept-'+id)&&document.getElementById('dg-dept-'+id).value;
+  var pct=parseInt(document.getElementById('dg-pct-'+id)&&document.getElementById('dg-pct-'+id).value)||0;
+  var obs=document.getElementById('dg-obs-'+id)&&document.getElementById('dg-obs-'+id).value;
+  var tend=document.getElementById('dg-tend-'+id)&&document.getElementById('dg-tend-'+id).value;
+  var mej=document.getElementById('dg-mej-'+id)&&document.getElementById('dg-mej-'+id).value;
+  var fecha=new Date().toLocaleString('es-MX');
+  DIAG[id]={dept:dept,pct:pct,obs:obs,tendencia:tend,mejora:mej,fecha:fecha};
+  DIAG_HIST.unshift({req:RQ[id]?RQ[id].name:id,dept:dept||'Sin asignar',pct:pct,obs:obs,fecha:fecha});
+  // Save to Supabase
+  if(PJ){
+    await _sb.from('diagnosticos').upsert({
+      proyecto_id:PJ.id||PJ.nombre,req_id:id,departamento:dept||'',
+      porcentaje:pct,observaciones:obs||'',tendencias:tend||'',mejoras:mej||'',
+      actualizado_por:ME.n,updated_at:new Date().toISOString()
+    },{onConflict:'proyecto_id,req_id'});
+  }
+  sT('💾 Diagnóstico guardado: '+( RQ[id]?RQ[id].name:id)+' · '+pct+'%');
+}
+
+async function guardarTodoDiag(){
+  var ids=Object.keys(RQ);
+  var saved=0;
+  for(var i=0;i<ids.length;i++){
+    var id=ids[i];
+    var deptEl=document.getElementById('dg-dept-'+id);
+    var pctEl=document.getElementById('dg-pct-'+id);
+    var obsEl=document.getElementById('dg-obs-'+id);
+    var tendEl=document.getElementById('dg-tend-'+id);
+    var mejEl=document.getElementById('dg-mej-'+id);
+    if(!pctEl) continue;
+    var dept=deptEl?deptEl.value:'';
+    var pct=parseInt(pctEl.value)||0;
+    var obs=obsEl?obsEl.value:'';
+    var tend=tendEl?tendEl.value:'';
+    var mej=mejEl?mejEl.value:'';
+    DIAG[id]={dept:dept,pct:pct,obs:obs,tendencia:tend,mejora:mej,fecha:new Date().toLocaleString('es-MX')};
+    saved++;
+    if(PJ){
+      await _sb.from('diagnosticos').upsert({
+        proyecto_id:PJ.id||PJ.nombre,req_id:id,departamento:dept||'',
+        porcentaje:pct,observaciones:obs||'',tendencias:tend||'',mejoras:mej||'',
+        actualizado_por:ME.n,updated_at:new Date().toISOString()
+      },{onConflict:'proyecto_id,req_id'});
+    }
+  }
+  sT('✅ Diagnóstico completo guardado · '+saved+' requisitos');
+  admView('diagnostico');
+}
+
+function exportDiag(){
+  var rows=Object.keys(RQ).map(function(id){
+    var d=DIAG[id]||{};
+    return [RQ[id].sys,RQ[id].name,d.dept||'',d.pct||0,d.obs||'',d.tendencia||'',d.mejora||'',d.fecha||''].join(',');
+  });
+  var csv='Sistema,Requisito,Departamento,% Cumplimiento,Observaciones,Tendencias,Mejoras,Fecha\n'+rows.join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;
+  a.download='Diagnostico_'+( PJ?PJ.nombre.replace(/ /g,'_'):'APCDE')+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  sT('📊 Diagnóstico exportado como CSV');
+}
+
+function vDiagnostico(){
+  // Separate from inocuidad requirements
+  // This is for external audit diagnosis
+  var deptStats={};
+  DIAGS.forEach(function(d){
+    if(!deptStats[d.depto]) deptStats[d.depto]={total:0,sum:0,count:0};
+    deptStats[d.depto].sum+=(d.pct||0);
+    deptStats[d.depto].count++;
+    deptStats[d.depto].total=Math.round(deptStats[d.depto].sum/deptStats[d.depto].count);
+  });
+  var deptCards=Object.keys(deptStats).length===0?'':
+    '<div class="g4" style="margin-bottom:12px">'+
+    Object.keys(deptStats).slice(0,4).map(function(dep){
+      var s=deptStats[dep];
+      var col=s.total>=75?'var(--ok)':s.total>=50?'var(--wn)':'var(--er)';
+      return '<div class="kp"><div class="ks" style="background:'+col+'"></div><div class="kl">'+dep+'</div><div class="kv" style="color:'+col+'">'+s.total+'%</div><div class="kn" style="color:var(--t3)">'+s.count+' req. diagnosticados</div></div>';
+    }).join('')+'</div>';
+
+  // All reqs list for diagnosis
+  var allReqs=Object.keys(RQ).map(function(id){
+    var diag=DIAGS.filter(function(d){return d.req_id===id;}).slice(-1)[0]||null;
+    var pct=diag?diag.pct:0;
+    var col=pct>=75?'var(--ok)':pct>=50?'var(--wn)':pct>0?'var(--er)':'var(--t3)';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:#F9FAFB;border:1px solid var(--bd);border-radius:9px;margin-bottom:5px">'+
+      '<div style="flex:1"><div style="font-size:12px;font-weight:600">'+RQ[id].name+'</div>'+
+      '<div style="font-size:9.5px;color:var(--t3)">'+RQ[id].sys+'</div></div>'+
+      '<div style="text-align:right;min-width:60px"><div style="font-size:16px;font-weight:800;color:'+col+'">'+pct+'%</div></div>'+
+      '<button class="btn bp bxs" data-action="abrirdiag" data-rid="">Diagnosticar</button>'+
+    '</div>';
+  }).join('');
+
+  // History
+  var histH=DIAGS.slice(0,5).map(function(d){
+    var col=d.pct>=75?'var(--ok)':d.pct>=50?'var(--wn)':'var(--er)';
+    return '<div class="hi"><div class="hd" style="background:'+col+'"></div>'+
+      '<div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+( RQ[d.req_id]?RQ[d.req_id].name:d.req_id)+'</div>'+
+      '<div style="font-size:10px;color:var(--t3)">'+d.depto+' · '+d.pct+'% · '+d.fecha+'</div></div>'+
+      '<span class="pl" style="background:'+(d.pct>=75?'var(--ok2)':d.pct>=50?'var(--wn2)':'var(--er2)')+';color:'+col+'">'+d.pct+'%</span></div>';
+  }).join('')||'<div style="color:var(--t3);font-size:12px;padding:10px">Sin diagnósticos registrados.</div>';
+
+  return '<div class="ib ib-p"><span>🔍</span><div>Este diagnóstico es independiente de los requisitos de inocuidad. Registra el avance de auditorías externas por departamento y requisito.</div></div>'+
+    deptCards+
+    '<div class="g2">'+
+      '<div class="cd"><div class="ch"><div class="ctt">📋 Requisitos para diagnosticar</div><button class="btn bx bxs" onclick="exportDiag()">⬇ Exportar</button></div>'+allReqs+'</div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">📊 Historial de diagnósticos</div></div>'+histH+'</div>'+
+    '</div>';
+}
+
+function abrirDiag(rid){
+  RID=rid;
+  var diag=DIAGS.filter(function(d){return d.req_id===rid;}).slice(-1)[0]||null;
+  document.getElementById('diag-req-nm').textContent=RQ[rid]?RQ[rid].name:'';
+  document.getElementById('diag-req-sys').textContent=RQ[rid]?RQ[rid].sys:'';
+  if(diag){
+    document.getElementById('diag-depto').value=diag.depto||'';
+    document.getElementById('diag-pct').value=diag.pct||'25';
+    document.getElementById('diag-obs').value=diag.obs||'';
+    document.getElementById('diag-tend').value=diag.tend||'';
+    document.getElementById('diag-mejoras').value=diag.mejoras||'';
+  }
+  oM('m-diag');
+}
+
+async function guardarDiag(){
+  if(!RID) return;
+  var depto=document.getElementById('diag-depto').value;
+  var pct=parseInt(document.getElementById('diag-pct').value)||25;
+  var obs=document.getElementById('diag-obs').value;
+  var tend=document.getElementById('diag-tend').value;
+  var mejoras=document.getElementById('diag-mejoras').value;
+  if(!depto){sT('Selecciona el departamento');return;}
+  var diag={req_id:RID,depto:depto,pct:pct,obs:obs,tend:tend,mejoras:mejoras,fecha:new Date().toLocaleString('es-MX'),by:ME.n};
+  DIAGS.unshift(diag);
+  // Save to Supabase if project active
+  if(PJ) try{await _sb.from('diagnosticos').insert({proyecto_id:PJ.id,req_id:RID,departamento:depto,pct_cumplimiento:pct,observaciones:obs,tendencias:tend,mejoras:mejoras});}catch(e){}
+  cM('m-diag');
+  sT('✅ Diagnóstico guardado · '+RQ[RID].name+' · '+pct+'%');
+  admView('diagnostico');
+}
+
+function exportDiag(){
+  var rows=DIAGS.map(function(d){
+    return [RQ[d.req_id]?RQ[d.req_id].sys:'',RQ[d.req_id]?RQ[d.req_id].name:d.req_id,d.depto,d.pct+'%',d.obs,d.tend,d.mejoras,d.fecha].join(',');
+  });
+  var csv='Sistema,Requisito,Departamento,% Cumplimiento,Observaciones,Tendencias,Mejoras,Fecha\n'+rows.join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Diagnostico_APCDE_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  sT('📊 Diagnóstico exportado');
 }
 
 async function doLogin(){
@@ -586,7 +908,7 @@ function admView(id){
   try{localStorage.setItem('apcde_av',id);}catch(e){}
   document.querySelectorAll('#vAdmin .ni').forEach(function(n){n.classList.remove('on');});
   var btn=document.getElementById('adm-ni-'+id);if(btn)btn.classList.add('on');
-  var titles={dashboard:'Dashboard General',clientes:'Gestión de Clientes',directores:'Directores',pipeline:'Pipeline · Nuevos clientes',newclient:'Nuevo Cliente / Empresa',newdir:'Nuevo Director','proj-dash':'Dashboard del Proyecto',requisitos:'Requisitos',deptos:'Departamentos',validar:'Validar Documentos',reporte:'Reporte de Estatus'};
+  var titles={dashboard:'Dashboard General',diagnostico:'Diagnóstico de resultados',clientes:'Gestión de Clientes',directores:'Directores',pipeline:'Pipeline · Nuevos clientes',newclient:'Nuevo Cliente / Empresa',newdir:'Nuevo Director','proj-dash':'Dashboard del Proyecto',requisitos:'Requisitos',deptos:'Departamentos',validar:'Validar Documentos',reporte:'Reporte de Estatus',diagnostico:'Diagnóstico de Resultados · Auditoría externa'};
   document.getElementById('adm-title').textContent=(titles[id]||id)+(PJ&&['proj-dash','requisitos','deptos','validar','reporte'].includes(id)?' · '+PJ.nombre:'');
   var mc=document.getElementById('adm-mc');
   if(id==='dashboard') mc.innerHTML=vAdmDash();
@@ -600,6 +922,8 @@ function admView(id){
   else if(id==='deptos') mc.innerHTML=vDeptos();
   else if(id==='validar') mc.innerHTML=vValidar();
   else if(id==='reporte') mc.innerHTML=vReporte();
+  else if(id==='diagnostico') mc.innerHTML=vDiagnostico();
+  else if(id==='diagnostico') mc.innerHTML=vDiagnostico();
   else mc.innerHTML='<div class="cd"><div class="ctt">'+id+'</div></div>';
 }
 
@@ -637,12 +961,23 @@ async function loadProjData(){
   });
   var {data:hist}=await _sb.from('historial').select('*').eq('proyecto_id',PJ.id).order('created_at',{ascending:false}).limit(50);
   HST=(hist||[]).map(function(h){return{rid:h.req_id,t:h.titulo,d:h.departamento,f:new Date(h.created_at).toLocaleString('es-MX'),c:h.color||'#2563EB',pl:h.pill||'pl-b',e:h.estado||''};});
+  // Load diagnosticos
+  var {data:diags}=await _sb.from('diagnosticos').select('*').eq('proyecto_id',PJ.id).order('created_at',{ascending:false}).limit(100);
+  DIAGS=(diags||[]).map(function(d){return{req_id:d.req_id,depto:d.departamento,pct:d.pct_cumplimiento,obs:d.observaciones||'',tend:d.tendencias||'',mejoras:d.mejoras||'',fecha:new Date(d.created_at).toLocaleString('es-MX'),by:ME.n};});
   var {data:docs}=await _sb.from('documentos').select('*').eq('proyecto_id',PJ.id);
   DOC={};
   if(docs) docs.forEach(function(d){
     if(!DOC[d.req_id]) DOC[d.req_id]=[];
     DOC[d.req_id].push({id:d.id,nm:d.nombre,dp:d.departamento,fe:new Date(d.created_at).toLocaleDateString('es-MX'),e:d.estado||'p',fi:d.firma||null,fi_dep:d.firma_dep||null});
   });
+  // Load diagnostico
+  var {data:diags}=await _sb.from('diagnosticos').select('*').eq('proyecto_id',PJ.id);
+  if(diags) diags.forEach(function(d){
+    DIAG[d.req_id]={dept:d.departamento||'',pct:d.porcentaje||0,obs:d.observaciones||'',tendencia:d.tendencias||'',mejora:d.mejoras||'',fecha:d.updated_at?new Date(d.updated_at).toLocaleString('es-MX'):''};
+  });
+  // Update pend badge
+  var tot=Object.values(DOC).flat().filter(function(d){return d.e==='p';}).length;
+  var nb=document.getElementById('nb-pend');if(nb)nb.textContent=tot||'';
   updDots();
 }
 
@@ -992,6 +1327,7 @@ async function guardarReq(){
   if(!RID) return;
   var chks=[].slice.call(document.querySelectorAll('#mr-dc input:checked')).map(function(c){return c.value;});
   var di=parseInt(document.getElementById('mr-di').value)||30;
+  var hora=document.getElementById('mr-hora')&&document.getElementById('mr-hora').value||'';
   var fe=document.getElementById('mr-fe').value;
   var ins=document.getElementById('mr-in').value;
   var est=document.getElementById('mr-estatus').value;
@@ -1000,7 +1336,7 @@ async function guardarReq(){
   var e=eSema[est]||'gr';
   var dr=null;
   if(fe){var hoy=new Date(),lim=new Date(fe);dr=Math.floor((lim-hoy)/(1000*60*60*24));e=dr>14?'a':dr>0?'a':'r';}
-  SEM[RID]=Object.assign(SEM[RID]||{},{dp:chks,di:di,fe:fe,ins:ins,e:e,dr:dr,estatus:est,titular:tit});
+  SEM[RID]=Object.assign(SEM[RID]||{},{dp:chks,di:di,fe:fe,ins:ins,e:e,dr:dr,estatus:est,titular:tit,hora:hora});
   if(PJ) await _sb.from('semaforos').upsert({proyecto_id:PJ.id,req_id:RID,estado:e,deptos:chks,dias:di,fecha_limite:fe||null,instrucciones:ins,dias_restantes:dr,estatus:est,titular:tit,updated_at:new Date().toISOString()},{onConflict:'proyecto_id,req_id'});
   addH(RID,'Requisito configurado · Titular: '+(tit||'Sin asignar'),ME.n,'#2563EB','pl-b','Configurado');
   updDots();cM('mrq');
@@ -1055,19 +1391,31 @@ async function sDocR(inp){
   if(!inp||!inp.files||!inp.files[0]||!RID) return;
   var f=inp.files[0];
   if(!DOC[RID]) DOC[RID]=[];
-  var doc={id:'d'+Date.now(),nm:f.name,dp:ME.r,fe:new Date().toLocaleDateString('es-MX'),e:'p',fi:null,fi_dep:null};
+  // Save to Supabase first
+  var dbId=null;
+  if(PJ){
+    var {data:saved,error:err}=await _sb.from('documentos').insert({
+      proyecto_id:PJ.id||PJ.nombre,req_id:RID,nombre:f.name,
+      departamento:ME.r,estado:'p',subido_por:ME.email||ME.r
+    }).select().single();
+    if(saved) dbId=saved.id;
+    if(err) console.error('Error saving doc:',err);
+  }
+  var doc={id:dbId||('d'+Date.now()),nm:f.name,dp:ME.r,fe:new Date().toLocaleDateString('es-MX'),e:'p',fi:null,fi_dep:null};
   DOC[RID].push(doc);
   addH(RID,'Doc subido: '+f.name,ME.r,'#D97706','pl-a','Pendiente');
   var nb=document.getElementById('nb-pend');
   if(nb){var tot=Object.values(DOC).flat().filter(function(d){return d.e==='p';}).length;nb.textContent=tot||'';}
-  sT('📎 Documento subido · Pendiente de validación');
+  sT('📎 Documento subido · Pendiente de validación por APCDE');
   rMDocs();
 }
 
-function vDoc(rid,did){
+async function vDoc(rid,did){
   if(!DOC[rid]) return;
   var d=DOC[rid].find(function(x){return x.id===did;});
   if(!d) return;d.e='v';
+  // Update in Supabase
+  await _sb.from('documentos').update({estado:'v'}).eq('id',did);
   addH(rid,'Doc validado: '+d.nm,ME.n,'#2563EB','pl-b','Validado');
   sT('✅ Documento validado');
   rMDocs();admView('validar');
@@ -1089,7 +1437,9 @@ async function cFirma(){
   var d=DOC[FAC.rid]&&DOC[FAC.rid].find(function(x){return x.id===FAC.did;});
   if(!d) return;
   d.e='f';d.fi=FAC.nu;
-  addH(FAC.rid,'Doc firmado: '+FAC.nm+' · '+FAC.nu,ME.n,'#16A34A','pl-g','Firmado');
+  // Update in Supabase
+  await _sb.from('documentos').update({estado:'f',firma:FAC.nu}).eq('id',FAC.did);
+  addH(FAC.rid,'Doc firmado: '+FAC.nm+' · '+FAC.nu,ME.n,'#16A34A','pl-g','Firmado APCDE');
   cM('mfr');
   sT('🔏 Firmado con '+FAC.nu);
   rMDocs();admView('validar');
@@ -1101,9 +1451,10 @@ async function firmarDep(rid,did,nm){
   if(!d) return;
   var nu=ME.fi+'-DOC-'+String(Math.floor(Math.random()*9000)+1000);
   d.fi_dep=nu;
-  addH(rid,'Firmado por '+ME.r+': '+nm+' · '+nu,ME.r,'#7C3AED','pl-p','Firmado depto');
-  sT('Firmado con '+nu);
-  initDep();
+  await _sb.from('documentos').update({firma_dep:nu,estado:'f'}).eq('id',did);
+  addH(rid,'Firmado por '+ME.r+': '+nm+' · '+nu,ME.r,'#7C3AED','pl-p','Firmado por depto');
+  sT('🔏 Firmado con '+nu);
+  openDepReq(rid);
 }
 
 async function addH(rid,t,d,c,pl,e){
@@ -1438,6 +1789,35 @@ function vDepDash(){
       '<div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+c.txt+'</div>'+
       '<div style="font-size:9.5px;color:var(--t3)">'+c.reqName+' · '+c.fecha+'</div></div></div>';
   }).join('')||'<div style="color:var(--t3);font-size:12px;padding:10px">Sin comunicados.</div>';
+  // Pending tasks (docs that are pending, comunicados unread)
+  var tareas=[];
+  // Pending docs to upload
+  misReqs.forEach(function(id){
+    var s=SEM[id]||{};
+    if(s.e!=='g'&&s.fe){
+      var hoy=new Date(),lim=new Date(s.fe);
+      var dr=Math.floor((lim-hoy)/(1000*60*60*24));
+      if(dr<=7) tareas.push({tipo:'entrega',rid:id,txt:'Entrega próxima: '+RQ[id].name,urgente:dr<=2,dr:dr});
+    }
+    // Docs pending firm
+    (DOC[id]||[]).filter(function(d){return d.dp===ME.r&&d.e==='v'&&!d.fi_dep;}).forEach(function(d){
+      tareas.push({tipo:'firma',rid:id,txt:'Documento por firmar: '+d.nm,urgente:true});
+    });
+    // Comunicados unread
+    (s.comunicados||[]).filter(function(c){return (c.dest==='todos'||c.dest===ME.r)&&!c.leido;}).slice(0,2).forEach(function(c){
+      tareas.push({tipo:'comunicado',rid:id,txt:'Nuevo comunicado: '+c.txt.slice(0,40),urgente:false});
+    });
+  });
+  var tareasH=tareas.length===0?'<div style="color:var(--ok);font-size:12px;padding:8px">✅ Sin tareas pendientes urgentes</div>':
+    tareas.slice(0,5).map(function(t){
+      var ico=t.tipo==='firma'?'🔏':t.tipo==='comunicado'?'📢':'📅';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+(t.urgente?'var(--er2)':'#FFFBEB')+';border-radius:8px;margin-bottom:5px;cursor:pointer;border:1px solid '+(t.urgente?'#FCA5A5':'#FCD34D')+'" data-action="depreq" data-rid="'+t.rid+'">'+
+        '<span style="font-size:14px">'+ico+'</span>'+
+        '<div style="flex:1"><div style="font-size:11px;font-weight:600">'+t.txt+'</div>'+
+        (t.dr!=null?'<div style="font-size:9.5px;color:'+(t.urgente?'var(--er)':'var(--wn)')+'">'+t.dr+' días restantes</div>':'')+
+        '</div><span style="color:var(--t3);font-size:11px">›</span></div>';
+    }).join('');
+
   return '<div style="background:linear-gradient(135deg,var(--nv),var(--bl));border-radius:14px;padding:18px;color:#fff;margin-bottom:12px">'+
     '<div style="font-size:10px;opacity:.5;margin-bottom:3px">Portal de departamento · '+(PJ?PJ.nombre:'')+'</div>'+
     '<div style="font-size:18px;font-weight:800;margin-bottom:2px">'+ME.r+'</div>'+
@@ -1450,8 +1830,16 @@ function vDepDash(){
     '<div class="kp"><div class="ks" style="background:var(--og)"></div><div class="kl">Docs pendientes</div><div class="kv" style="color:var(--og)">'+pend+'</div></div>'+
   '</div>'+
   '<div class="g2">'+
-    '<div class="cd"><div class="ch"><div class="ctt">Mis requisitos ('+misReqs.length+')</div></div>'+reqCards+'</div>'+
-    '<div class="cd"><div class="ch"><div class="ctt">📢 Comunicados recientes</div><button class="btn bp bxs" data-action="depview" data-id="dep-coms">Ver todos</button></div>'+comCards+'</div>'+
+    '<div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">⚡ Tareas pendientes ('+tareas.length+')</div></div>'+tareasH+'</div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">Mis requisitos ('+misReqs.length+')</div></div>'+reqCards+'</div>'+
+    '</div>'+
+    '<div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">📢 Comunicados recientes</div><button class="btn bp bxs" data-action="depview" data-id="dep-coms">Ver todos</button></div>'+comCards+'</div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">📹 Videollamada con APCDE</div></div>'+
+      '<button class="vcall-btn" data-action="depview" data-id="dep-vcall" style="font-size:11px">📹 Conectar con Antonio Palacios</button>'+
+      '</div>'+
+    '</div>'+
   '</div>';
 }
 
@@ -1543,11 +1931,158 @@ function openDepReq(rid){
   document.querySelectorAll('#vDep .ni').forEach(function(n){n.classList.remove('on');});
   var btn=document.getElementById('ni-dep-req-'+rid);if(btn)btn.classList.add('on');
   document.getElementById('dep-title').textContent=RQ[rid].name;
+  var s=SEM[rid]||{e:'gr',dp:[],hi:[],comunicados:[]};
+  var sc='sm-'+(s.e||'gr');
+  var se=s.e==='g'?'🟢':s.e==='a'?'🟡':s.e==='r'?'🔴':'⬜';
+  var lb={'verificado':'✅ Verificado','trabajado':'🔧 En trabajo','revisado':'👁 Revisado','sin_revision':'⬜ Sin revisión'}[s.estatus||'sin_revision'];
+  var plc=s.estatus==='verificado'?'pl-g':s.estatus==='trabajado'||s.estatus==='revisado'?'pl-a':'pl-r';
+  
+  // Days remaining
+  var drHtml='';
+  if(s.dr!=null){
+    var drCol=s.dr>14?'var(--ok)':s.dr>3?'var(--wn)':'var(--er)';
+    drHtml='<span class="pl" style="background:#F1F5F9;color:'+drCol+';font-weight:700">⏰ '+s.dr+' días restantes'+(s.hora?' · Hora: '+s.hora:'')+'</span>';
+  }
+
+  // ALL docs for this req (not just mine)
+  var docs=DOC[rid]||[];
+  var misDocs=docs.filter(function(d){return d.dp===ME.r;});
+  var otrosDocs=docs.filter(function(d){return d.dp!==ME.r;});
+  
+  var myDocsH=misDocs.length===0?'<div style="color:var(--t3);font-size:11px;padding:6px">No has subido documentos aún.</div>':
+    misDocs.map(function(d){
+      var pl=d.e==='f'?'pl-g':d.e==='v'?'pl-b':'pl-a';
+      var lbd=d.e==='f'?'Firmado APCDE':d.e==='v'?'Validado':'Pendiente revisión';
+      return '<div class="di"><span style="font-size:16px">📄</span>'+
+        '<div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+d.nm+'</div>'+
+        '<div style="font-size:9.5px;color:var(--t3)">'+d.fe+
+        (d.fi?'<br><span style="color:var(--ok);font-weight:600">🔏 APCDE: '+d.fi+'</span>':'')+
+        (d.fi_dep?'<br><span style="color:var(--pu);font-weight:600">🔏 Mi firma: '+d.fi_dep+'</span>':'')+
+        '</div></div>'+
+        '<span class="pl '+pl+'">'+lbd+'</span>'+
+        (!d.fi_dep?'<button class="btn bpu bxs" data-action="firmadep" data-rid="'+(rid||'')+'" data-did="'+d.id+'" data-nm="'+d.nm+'">🔏 Firmar</button>':'')+
+        '<button class="btn bx bxs" data-action="descargar">↓</button></div>';
+    }).join('');
+
+  var otrosDocsH=otrosDocs.length===0?'':
+    '<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">Documentos de otros departamentos:</div>'+
+    otrosDocs.map(function(d){
+      var pl=d.e==='f'?'pl-g':d.e==='v'?'pl-b':'pl-a';
+      var lbd=d.e==='f'?'Firmado':d.e==='v'?'Validado':'Pendiente';
+      return '<div class="di" style="background:#F0F4FF"><span style="font-size:16px">📄</span>'+
+        '<div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+d.nm+'</div>'+
+        '<div style="font-size:9.5px;color:var(--t3)">'+d.dp+' · '+d.fe+'</div></div>'+
+        '<span class="pl '+pl+'">'+lbd+'</span>'+
+        '<button class="btn bx bxs" data-action="descargar">↓</button></div>';
+    }).join('')+'</div>';
+
+  // Comunicados for this dept
+  var misComs=(s.comunicados||[]).filter(function(c){return c.dest==='todos'||c.dest===ME.r;});
+  var comH=misComs.length===0?'<div style="color:var(--t3);font-size:11px;padding:6px">Sin comunicados para este requisito.</div>':
+    misComs.map(function(c){
+      return '<div style="display:flex;gap:8px;padding:8px 10px;background:#FFFBEB;border-radius:8px;margin-bottom:5px;border:1px solid #FCD34D">'+
+        '<span>📢</span><div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+c.txt+'</div>'+
+        '<div style="font-size:9px;color:var(--t3)">De: '+(c.de||'Antonio Palacios')+' · '+c.fecha+'</div></div></div>';
+    }).join('');
+
+  // Instructions
+  var insH=s.ins?'<div class="ib ib-b"><span>📋</span><div style="font-size:11.5px">'+s.ins+'</div></div>':'';
+
+  // Historial
+  var histH=(s.hi||[]).map(function(x){
+    return '<div class="hi"><div class="hd" style="background:'+x.c+'"></div>'+
+      '<div><div style="font-size:11.5px;font-weight:600">'+x.t+'</div>'+
+      '<div style="font-size:10px;color:var(--t3)">'+x.d+' · '+x.f+'</div></div></div>';
+  }).join('')||'<div style="color:var(--t3);font-size:11.5px">Sin historial aún.</div>';
+
+  // Interactions - other depts (exclude admin/inocuidad)
+  var adminDepts=['Antonio Palacios','APCDE','Inocuidad','Calidad e Inocuidad'];
+  var otrosDeptos=(s.dp||[]).filter(function(d){return d!==ME.r&&!adminDepts.includes(d);});
+  var interH=otrosDeptos.length===0?'<div style="color:var(--t3);font-size:11px;padding:6px">Sin otros departamentos en este requisito.</div>':
+    otrosDeptos.map(function(d){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#F9FAFB;border-radius:8px;margin-bottom:5px">'+
+        '<div style="width:26px;height:26px;border-radius:50%;background:var(--bl);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">'+d[0]+'</div>'+
+        '<div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+d+'</div></div>'+
+        '<input class="fi2" type="number" id="inter-dias-'+rid+'-'+d.replace(/ /g,'_')+'" placeholder="Días" style="width:60px;font-size:11px">'+
+        '<input class="fi2" type="time" id="inter-hora-'+rid+'-'+d.replace(/ /g,'_')+'" style="width:80px;font-size:11px">'+
+        '<button class="btn bp bxs" data-action="proponerdias" data-rid="'+rid+'" data-dest="'+d+'">Proponer</button>'+
+      '</div>';
+    }).join('');
+
+  var mc=document.getElementById('dep-mc');
+  mc.innerHTML=
+    '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'+
+      '<div class="smb '+sc+'">'+se+'</div>'+
+      '<div style="flex:1">'+
+        '<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:2px">'+RQ[rid].sys+'</div>'+
+        '<div style="font-size:17px;font-weight:800;margin-bottom:5px">'+RQ[rid].name+'</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+          '<span class="pl '+plc+'">'+lb+'</span>'+
+          (s.titular===ME.r?'<span class="pl pl-b">⭐ Soy el titular</span>':s.titular?'<span class="pl pl-x">Titular: '+s.titular+'</span>':'')+
+          drHtml+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    insH+
+    '<div style="display:flex;gap:2px;background:#F1F5F9;padding:3px;border-radius:9px;margin-bottom:10px">'+
+      '<button class="rt on" id="dep-rt-docs" data-action="depreqtab" data-tab="docs">📄 Mis documentos</button>'+
+      '<button class="rt" id="dep-rt-coms" data-action="depreqtab" data-tab="coms">📢 Comunicados</button>'+
+      '<button class="rt" id="dep-rt-inter" data-action="depreqtab" data-tab="inter">🤝 Interacciones</button>'+
+      '<button class="rt" id="dep-rt-hist" data-action="depreqtab" data-tab="hist">📊 Historial</button>'+
+    '</div>'+
+    '<div id="dep-tp-docs">'+
+      '<div class="cd">'+
+        '<div class="ch"><div class="ctt">Mis documentos para este requisito</div>'+
+          '<button class="btn bp bxs" data-action="subirdep" data-rid="'+rid+'">📎 Subir documento</button>'+
+          '<input type="file" id="dep-fu-'+rid+'" style="display:none">'+
+        '</div>'+
+        myDocsH+otrosDocsH+
+      '</div>'+
+    '</div>'+
+    '<div id="dep-tp-coms" class="H"><div class="cd"><div class="ch"><div class="ctt">📢 Comunicados de APCDE</div></div>'+comH+'</div></div>'+
+    '<div id="dep-tp-inter" class="H"><div class="cd"><div class="ch"><div class="ctt">🤝 Proponer días/hora a otros departamentos</div></div>'+interH+'</div></div>'+
+    '<div id="dep-tp-hist" class="H"><div class="cd"><div class="ch"><div class="ctt">📊 Historial completo</div></div>'+histH+'</div></div>';
+}
+
+function depReqTab(t){
+  ['docs','coms','inter','hist'].forEach(function(x){
+    var btn=document.getElementById('dep-rt-'+x);var tp=document.getElementById('dep-tp-'+x);
+    if(btn)btn.classList.toggle('on',x===t);
+    if(tp)tp.classList.toggle('H',x!==t);
+  });
+}
+
+async function proponerDiasADept(rid,dest){
+  var destKey=dest.replace(/ /g,'_');
+  var dias=document.getElementById('inter-dias-'+rid+'-'+destKey)&&document.getElementById('inter-dias-'+rid+'-'+destKey).value;
+  var hora=document.getElementById('inter-hora-'+rid+'-'+destKey)&&document.getElementById('inter-hora-'+rid+'-'+destKey).value;
+  if(!dias){sT('Escribe los días para proponer');return;}
+  var txt=ME.r+' propone entrega en '+dias+' días'+(hora?' a las '+hora:'');
+  if(!SEM[rid].comunicados) SEM[rid].comunicados=[];
+  SEM[rid].comunicados.unshift({txt:txt,dest:dest,fecha:new Date().toLocaleString('es-MX'),de:ME.r});
+  addH(rid,txt,ME.r,'#7C3AED','pl-p','Propuesta');
+  sT('Propuesta enviada a '+dest);
+  openDepReq(rid);
+}
+
+
+function renderOpenDepReq(rid){
+  document.querySelectorAll('#vDep .ni').forEach(function(n){n.classList.remove('on');});
+  var btn=document.getElementById('ni-dep-req-'+rid);if(btn)btn.classList.add('on');
+  document.getElementById('dep-title').textContent=RQ[rid].name;
   var s=SEM[rid]||{e:'gr',dp:[],hi:[]};
   var sc='sm-'+(s.e||'gr');var se=s.e==='g'?'🟢':s.e==='a'?'🟡':s.e==='r'?'🔴':'⬜';
   var lb={'verificado':'✅ Verificado','trabajado':'🔧 En trabajo','revisado':'👁 Revisado','sin_revision':'⬜ Sin revisión'}[s.estatus||'sin_revision'];
   var docs=DOC[rid]||[];
-  var misDocs=docs.filter(function(d){return d.dp===ME.r;});
+  var misDocs=docs; // Dept sees ALL docs for this req (their own + validated ones from others)
+  // Calculate days remaining
+  var drHtml='';
+  if(s.fe){
+    var hoy=new Date(),lim=new Date(s.fe);
+    var dr=Math.floor((lim-hoy)/(1000*60*60*24));
+    var drCol=dr>7?'var(--ok)':dr>2?'var(--wn)':'var(--er)';
+    drHtml='<span class="pl '+(dr>7?'pl-g':dr>2?'pl-a':'pl-r')+'">'+dr+' días restantes</span>';
+  }
   var dH=misDocs.map(function(d){
     var pl=d.e==='f'?'pl-g':d.e==='v'?'pl-b':'pl-a';var lbd=d.e==='f'?'Firmado':d.e==='v'?'Validado':'Pendiente';
     return '<div class="di"><span style="font-size:16px">📄</span>'+
@@ -1569,11 +2104,22 @@ function openDepReq(rid){
     '<div style="flex:1">'+
     '<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:2px">'+RQ[rid].sys+'</div>'+
     '<div style="font-size:18px;font-weight:800;margin-bottom:4px">'+RQ[rid].name+'</div>'+
-    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-    '<span class="pl pl-b">'+(s.titular===ME.r?'⭐ Soy el titular':'Departamento titular: '+(s.titular||'Sin asignar'))+'</span>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+
+    '<span class="pl pl-b">'+(s.titular===ME.r?'⭐ Soy el titular':'Titular: '+(s.titular||'Sin asignar'))+'</span>'+
     '<span class="pl '+(s.estatus==='verificado'?'pl-g':s.estatus==='sin_revision'?'pl-r':'pl-a')+'">'+lb+'</span>'+
-    (s.fe?'<span class="pl pl-x">Límite: '+s.fe+'</span>':'')+
-    '</div></div></div>'+
+    (s.fe?'<span class="pl pl-x">📅 '+s.fe+'</span>':'')+
+    drHtml+
+    '</div>'+
+    (s.ins?'<div style="background:#EBF2FB;border:1px solid #93C5FD;border-radius:8px;padding:9px 12px;font-size:11.5px;color:var(--bl);margin-top:4px"><strong>📋 Instrucciones:</strong> '+s.ins+'</div>':'')+
+    '</div></div>'+
+    // Comunicados para este req
+    ((s.comunicados||[]).filter(function(c){return c.dest==='todos'||c.dest===ME.r;}).length>0?
+      '<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:10px 13px;margin-bottom:10px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--wn);margin-bottom:7px">📢 Comunicados de APCDE</div>'+
+      (s.comunicados||[]).filter(function(c){return c.dest==='todos'||c.dest===ME.r;}).map(function(c){
+        return '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #FCD34D"><span>📢</span><div><div style="font-size:11.5px;font-weight:600">'+c.txt+'</div><div style="font-size:9.5px;color:var(--t3)">'+c.fecha+'</div></div></div>';
+      }).join('')+
+      '</div>':'')+
     '<div class="g2">'+
     '<div>'+
     '<div class="cd"><div class="ch"><div class="ctt">📎 Mis documentos</div>'+
@@ -1592,7 +2138,15 @@ async function sDocDep(inp,rid){
   if(!inp||!inp.files||!inp.files[0]) return;
   var f=inp.files[0];
   if(!DOC[rid]) DOC[rid]=[];
-  var doc={id:'d'+Date.now(),nm:f.name,dp:ME.r,fe:new Date().toLocaleDateString('es-MX'),e:'p',fi:null,fi_dep:null};
+  var dbId=null;
+  if(PJ){
+    var {data:saved}=await _sb.from('documentos').insert({
+      proyecto_id:PJ.id||PJ.nombre||ME.pj_id,req_id:rid,nombre:f.name,
+      departamento:ME.r,estado:'p',subido_por:ME.email||ME.r
+    }).select().single();
+    if(saved) dbId=saved.id;
+  }
+  var doc={id:dbId||('d'+Date.now()),nm:f.name,dp:ME.r,fe:new Date().toLocaleDateString('es-MX'),e:'p',fi:null,fi_dep:null};
   DOC[rid].push(doc);
   addH(rid,'Doc subido: '+f.name,ME.r,'#D97706','pl-a','Pendiente revisión APCDE');
   sT('📎 Documento subido · Antonio Palacios lo revisará pronto');
@@ -1602,8 +2156,12 @@ async function sDocDep(inp,rid){
 async function proponerDias(rid){
   var dest=document.getElementById('pi-dest-'+rid)&&document.getElementById('pi-dest-'+rid).value;
   var dias=document.getElementById('pi-dias-'+rid)&&document.getElementById('pi-dias-'+rid).value;
+  var hora=document.getElementById('pi-hora-'+rid)&&document.getElementById('pi-hora-'+rid).value;
   if(!dest||!dias){sT('Selecciona departamento y días');return;}
-  var txt=ME.r+' propone '+dias+' días para que '+dest+' entregue';
+  // Cannot propose to admin or Inocuidad titular
+  var s=SEM[rid]||{};
+  if(dest===s.titular&&s.titular===ME.r){sT('No puedes proponerte días a ti mismo');return;}
+  var txt=ME.r+' propone '+dias+' días'+(hora?' a las '+hora:'')+'  para que '+dest+' entregue';
   if(!SEM[rid].comunicados) SEM[rid].comunicados=[];
   SEM[rid].comunicados.unshift({txt:txt,dest:dest,fecha:new Date().toLocaleString('es-MX'),de:ME.r});
   addH(rid,txt,ME.r,'#7C3AED','pl-p','Propuesta días');
@@ -1687,7 +2245,15 @@ document.addEventListener('click',function(e){
   else if(a==='descargar') sT('Descargando...');
   else if(a==='resetdep') sT('Correo de reset enviado a '+em);
   else if(a==='logout') doLogout();
+  else if(a==='opendiag') abrirDiag(rid);
+  else if(a==='firmadep') firmarDep(rid,did,nm);
+  else if(a==='toast') sT(el.dataset.msg);
+  else if(a==='depreqtab') depReqTab(el.dataset.tab);
+  else if(a==='subirdep'){var fu=document.getElementById('dep-fu-'+(rid||RID));if(fu)fu.onchange=function(){sDocDep(this,rid||RID);};if(fu)fu.click();}
+  else if(a==='proponerdias'){ var rd=el.dataset.rid; var dt=el.dataset.dest; var diasEl=document.getElementById('inter-dias-'+rd+'-'+(dt||'').replace(/ /g,'_')); var horaEl=document.getElementById('inter-hora-'+rd+'-'+(dt||'').replace(/ /g,'_')); if(!diasEl||!diasEl.value){sT('Escribe los días');return;} var txt2=ME.r+' propone '+diasEl.value+' días'+(horaEl&&horaEl.value?' a las '+horaEl.value:''); if(!SEM[rd].comunicados)SEM[rd].comunicados=[]; SEM[rd].comunicados.unshift({txt:txt2,dest:dt,fecha:new Date().toLocaleString('es-MX'),de:ME.r}); addH(rd,txt2,ME.r,'#7C3AED','pl-p','Propuesta'); sT('Propuesta enviada a '+dt); openDepReq(rd); }
   else if(a==='delproj') delProj(parseInt(idx));
+  else if(a==='guardarDiag') guardarDiag(id);
+  else if(a==='diagsys'){var sysId=el.dataset.sys;var el2=document.getElementById('ds-'+(sysId||'').replace(/[^a-z]/gi,''));if(el2)el2.classList.toggle('H');}
 });
 
 document.addEventListener('click',function(e){if(e.target.classList.contains('ov'))e.target.classList.remove('open');});
@@ -1695,7 +2261,6 @@ document.addEventListener('keydown',function(e){if(e.key==='Enter'&&!document.ge
 document.addEventListener('keydown',function(e){if(e.key==='Enter'&&document.getElementById('ai-inp')&&document.activeElement===document.getElementById('ai-inp'))sendAI();});
 
 init();
-
 </script>
 </body>
 </html>
