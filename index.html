@@ -1056,10 +1056,18 @@ function updTareasAlerts(){
 
 function getMisTareas(){
   var all=[];
+  var myDept=(ME.r||'').toLowerCase();
   Object.keys(TAREAS).forEach(function(rid){
     (TAREAS[rid]||[]).forEach(function(t){
-      if(t.departamento===ME.r||t.departamento==='todos') all.push(Object.assign({},t,{rid:rid}));
+      var td=(t.departamento||'').toLowerCase();
+      if(td==='todos'||td===myDept||td==='') all.push(Object.assign({},t,{rid:rid}));
     });
+  });
+  // Sort: activa first, then by fecha_limite
+  all.sort(function(a,b){
+    if(a.estado==='activa'&&b.estado!=='activa') return -1;
+    if(b.estado==='activa'&&a.estado!=='activa') return 1;
+    return new Date(a.fecha_limite)-new Date(b.fecha_limite);
   });
   return all;
 }
@@ -2320,14 +2328,17 @@ async function initDep(){
   document.getElementById('dep-rl').textContent=ME.empresa||'Departamento';
   document.getElementById('dep-fi').textContent=ME.fi;
   // Load project data for this dept
-  if(ME.pj_id||ME.empresa){
-    var pjId=ME.pj_id||ME.empresa;
+  var pjId=ME.pj_id||ME.empresa;
+  if(pjId){
     var {data:pjd}=await _sb.from('proyectos').select('*').eq('id',pjId);
-    if(pjd&&pjd[0]) PJ=pjd[0];
-    await loadProjData();
+    if(pjd&&pjd[0]){
+      PJ=pjd[0];
+      await loadProjData();
+    }
   }
   // Record last access
   try{await _sb.from('departamentos').update({ultimo_acceso:new Date().toISOString(),activo:true}).eq('email',ME.email);}catch(e){}
+  buildDepNav();
   depView('dep-dash');
 }
 
@@ -2870,14 +2881,20 @@ document.addEventListener('click',function(e){
   else if(a==='firmar') abrirFirma(rid,did,nm);
   else if(a==='descargar'){
     var dpath=el.dataset.path;var dnm=el.dataset.nm||'documento';
-    if(dpath){
-      _sb.storage.from('documentos').createSignedUrl(dpath,300).then(function(r){
-        if(r.data&&r.data.signedUrl){
-          var a2=document.createElement('a');a2.href=r.data.signedUrl;a2.download=dnm;a2.click();
-          sT('⬇ Descargando '+dnm);
-        } else {sT('Error al descargar - intenta de nuevo');}
-      });
-    } else {sT('Este documento no tiene archivo adjunto (subido antes de la actualización)');}
+    if(dpath&&dpath.length>2){
+      // Public bucket - use direct public URL
+      var pub=_sb.storage.from('documentos').getPublicUrl(dpath);
+      if(pub&&pub.data&&pub.data.publicUrl){
+        var a2=document.createElement('a');
+        a2.href=pub.data.publicUrl;
+        a2.download=dnm;
+        a2.target='_blank';
+        document.body.appendChild(a2);
+        a2.click();
+        document.body.removeChild(a2);
+        sT('⬇ Descargando '+dnm);
+      } else {sT('Error al generar enlace de descarga');}
+    } else {sT('Sin archivo adjunto — sube el documento de nuevo');}
   }
   else if(a==='resetdep') sT('Correo de reset enviado a '+em);
   else if(a==='logout') doLogout();
