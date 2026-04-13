@@ -575,7 +575,7 @@ async function loadU(u){
     showScreen('admin');
   } else if(m.rol==='director'||m.acceso==='director'){
     RL='dir';
-    ME={n:m.nombre||email.split('@')[0],r:'Director · '+( m.empresa||'APCDE'),fi:m.firma||'---',email:email,empresa:m.empresa||''};
+    ME={n:m.nombre||email.split('@')[0],r:'Director · '+( m.empresa||'APCDE'),fi:m.firma||'---',email:email,empresa:m.empresa||'',perm_diag:m.perm_diag||false};
     showScreen('admin');
   } else if(m.rol==='cliente'||m.acceso==='cliente'){
     RL='cli';
@@ -654,145 +654,94 @@ function getSemaforoTarea(t){
 var DIAG_HIST=[];  // History of all saved diagnostics
 
 function vDiagnostico(){
-  // Dashboard metrics
-  var total=Object.keys(DIAG).length;
-  var pcts=[25,50,75,100];
-  var byPct={25:0,50:0,75:0,100:0};
+  var canSee=(RL==='admin'||(RL==='dir'&&(ME.ver_diag||ME.ver_diag===undefined))||(RL==='cli'));
+  if(!canSee) return '<div class="cd"><div style="text-align:center;padding:24px;color:var(--t3)">Sin acceso a este módulo.</div></div>';
+  var total=Object.keys(RQ).length;
+  var diagnosticados=Object.keys(DIAG).filter(function(id){return DIAG[id]&&DIAG[id].pct>0;}).length;
+  var prom=diagnosticados>0?Math.round(Object.values(DIAG).filter(function(d){return d&&d.pct;}).reduce(function(a,d){return a+d.pct;},0)/diagnosticados):0;
+  var al100=Object.values(DIAG).filter(function(d){return d&&d.pct===100;}).length;
+  // Dept bars
   var byDept={};
-  Object.values(DIAG).forEach(function(d){
-    if(d.pct) byPct[d.pct]=(byPct[d.pct]||0)+1;
-    if(d.dept){if(!byDept[d.dept]) byDept[d.dept]={sum:0,cnt:0};byDept[d.dept].sum+=d.pct||0;byDept[d.dept].cnt++;}
-  });
-  var avgPct=total>0?Math.round(Object.values(DIAG).reduce(function(a,d){return a+(d.pct||0);},0)/total):0;
-  var docPct=Math.round(Object.values(DIAG).filter(function(d){return d.pct===100;}).length/Math.max(Object.keys(RQ).length,1)*100);
-
-  // Dept bar chart
-  var deptBars=Object.keys(byDept).map(function(d){
-    var avg=Math.round(byDept[d].sum/byDept[d].cnt);
-    var col=avg>=75?'var(--ok)':avg>=50?'var(--wn)':'var(--er)';
-    return '<div class="gantt-row"><div class="gantt-label">'+d+'</div>'+
-      '<div class="gantt-bar-wrap"><div class="gantt-bar" style="width:'+avg+'%;background:'+col+'">'+avg+'%</div></div>'+
-      '<div style="font-size:10px;font-weight:700;color:'+col+';width:35px;text-align:right">'+avg+'%</div></div>';
-  }).join('')||'<div style="color:var(--t3);font-size:12px">Llena el diagnóstico para ver métricas.</div>';
-
-  // Build req rows grouped by system
+  Object.values(DIAG).forEach(function(d){if(d&&d.dept&&d.pct){if(!byDept[d.dept])byDept[d.dept]={s:0,c:0};byDept[d.dept].s+=d.pct;byDept[d.dept].c++;}});
+  var deptBars=Object.keys(byDept).map(function(dep){
+    var avg=Math.round(byDept[dep].s/byDept[dep].c);
+    var co=avg>=75?'var(--ok)':avg>=50?'var(--wn)':'var(--er)';
+    return '<div class="gantt-row"><div class="gantt-label">'+dep+'</div><div class="gantt-bar-wrap"><div class="gantt-bar" style="width:'+avg+'%;background:'+co+'">'+avg+'%</div></div><div style="font-size:10px;font-weight:700;color:'+co+';width:35px;text-align:right">'+avg+'%</div></div>';
+  }).join('')||'<div style="color:var(--t3);font-size:12px">Sin datos aún.</div>';
+  // Build grouped req forms
   var grupos={SGIA:[],BPM:[],HACCP:[],'AUDITORÍA':[]};
-  Object.keys(RQ).forEach(function(id){if(grupos[RQ[id].sys]) grupos[RQ[id].sys].push(id);});
-
-  var reqRows='';
-  Object.keys(grupos).forEach(function(sys){
+  Object.keys(RQ).forEach(function(id){if(grupos[RQ[id].sys])grupos[RQ[id].sys].push(id);});
+  var reqForms=Object.keys(grupos).map(function(sys){
     var sysCol={'SGIA':'var(--b2)','BPM':'var(--pu)','HACCP':'var(--ok)','AUDITORÍA':'var(--og)'}[sys]||'var(--bl)';
     var sysAvg=grupos[sys].length>0?Math.round(grupos[sys].reduce(function(a,id){return a+(DIAG[id]?DIAG[id].pct||0:0);},0)/grupos[sys].length):0;
-    reqRows+='<div class="cd" style="margin-bottom:8px">'+
-      '<div class="ch" style="cursor:pointer" data-action="diagsys" data-sys="'+sys+'">'+
-        '<div class="ctt" style="color:'+sysCol+'">'+sys+' · '+sysAvg+'% promedio</div>'+
-        '<span style="color:var(--t3);font-size:11px">▼</span>'+
-      '</div>'+
-      '<div id="ds-'+sys.replace(/[^a-z]/gi,'')+'" >'+
+    return '<div class="cd"><div class="ch" style="cursor:pointer" data-action="togdiag" data-sys="'+sys.replace(/[^a-z]/gi,'').toLowerCase()+'"><div class="ctt" style="color:'+sysCol+'">'+sys+' · '+sysAvg+'% promedio ('+grupos[sys].length+' requisitos)</div><span style="color:var(--t3)">▼</span></div>'+
+      '<div id="diag-sys-'+sys.replace(/[^a-z]/gi,'').toLowerCase()+'">'+
       grupos[sys].map(function(id){
         var d=DIAG[id]||{};
         var pct=d.pct||0;
         var pctCol=pct===100?'pl-g':pct>=50?'pl-a':'pl-r';
-        return '<div style="padding:8px 0;border-bottom:1px solid var(--bd)">'+
-          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;align-items:start;margin-bottom:5px">'+
-            '<div><div style="font-size:11.5px;font-weight:600">'+RQ[id].name+'</div>'+
-            '<div style="font-size:9.5px;color:var(--t3)">'+( d.responsable?'Responsable: '+d.responsable:'Sin responsable asignado')+'</div></div>'+
-            '<div class="fg2"><label class="fl2">Departamento</label>'+
-              '<select class="fsl" id="dg-dept-'+id+'" style="font-size:10px">'+
+        var saved=d.fecha?'<span class="pl pl-g" style="font-size:9px">✅ Guardado '+d.fecha+'</span>':'';
+        return '<div style="border:1px solid var(--bd);border-radius:9px;padding:11px 13px;margin-bottom:8px">'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'+
+            '<div style="font-size:12px;font-weight:700;flex:1">'+RQ[id].name+'</div>'+
+            (pct>0?'<span class="pl '+pctCol+'">'+pct+'%</span>':'')+saved+
+          '</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">'+
+            '<div class="fg2"><label class="fl2">Departamento responsable</label>'+
+              '<select class="fsl" id="dg-dept-'+id+'" style="font-size:11px">'+
               '<option value="">Sin asignar</option>'+
+              '<option value="todos" '+(d.dept==='todos'?'selected':'')+'>Todos los departamentos</option>'+
               DPS.map(function(dp){return '<option value="'+dp.n+'" '+(d.dept===dp.n?'selected':'')+'>'+dp.n+'</option>';}).join('')+
               '</select>'+
             '</div>'+
             '<div class="fg2"><label class="fl2">% Cumplimiento</label>'+
-              '<select class="fsl" id="dg-pct-'+id+'" style="font-size:10px">'+
+              '<select class="fsl" id="dg-pct-'+id+'" style="font-size:11px">'+
               [0,25,50,75,100].map(function(p){return '<option value="'+p+'" '+(pct===p?'selected':'')+'>'+p+'%</option>';}).join('')+
               '</select>'+
               '<div class="pr" style="margin-top:4px"><div class="prf" style="width:'+pct+'%;background:'+(pct===100?'var(--ok)':pct>=50?'var(--wn)':'var(--er)')+'"></div></div>'+
             '</div>'+
-            '<div style="display:flex;align-items:center;justify-content:flex-end"><span class="pl '+pctCol+'">'+pct+'%</span></div>'+
+            '<div class="fg2"><label class="fl2">Fecha del diagnóstico</label>'+
+              '<input class="fi2" id="dg-fecha-'+id+'" type="date" value="'+(d.fecha_diag||'')+'" style="font-size:11px">'+
+            '</div>'+
           '</div>'+
-          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'+
-            '<div class="fg2"><label class="fl2">Observaciones</label><textarea class="fi2" id="dg-obs-'+id+'" rows="2" placeholder="Observaciones del diagnóstico..." style="font-size:10.5px">'+( d.obs||'')+'</textarea></div>'+
-            '<div class="fg2"><label class="fl2">Tendencias</label><textarea class="fi2" id="dg-tend-'+id+'" rows="2" placeholder="Tendencias identificadas..." style="font-size:10.5px">'+( d.tendencia||'')+'</textarea></div>'+
-            '<div class="fg2"><label class="fl2">Mejoras</label><textarea class="fi2" id="dg-mej-'+id+'" rows="2" placeholder="Oportunidades de mejora..." style="font-size:10.5px">'+( d.mejora||'')+'</textarea></div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+            '<div class="fg2"><label class="fl2">Descripción del diagnóstico</label>'+
+              '<textarea class="fi2" id="dg-obs-'+id+'" rows="3" placeholder="Describe los hallazgos del diagnóstico...">'+( d.obs||'')+'</textarea>'+
+            '</div>'+
+            '<div class="fg2"><label class="fl2">Oportunidades de mejora</label>'+
+              '<div style="display:flex;gap:5px;align-items:flex-start">'+
+                '<textarea class="fi2" id="dg-mej-'+id+'" rows="3" placeholder="Acciones de mejora identificadas..." style="flex:1">'+( d.mejora||'')+'</textarea>'+
+                '<label style="display:flex;align-items:center;gap:4px;font-size:10px;white-space:nowrap;padding-top:4px"><input type="checkbox" id="dg-na-'+id+'" '+(d.mejora==='N/A'?'checked':'')+' data-action="diagnapply" data-id="'+id+'"> N/A</label>'+
+              '</div>'+
+            '</div>'+
           '</div>'+
-          '<div style="text-align:right;margin-top:4px"><button class="btn bp bxs" data-action="guardarDiag" data-id="'+id+'">💾 Guardar</button></div>'+
+          '<div style="display:flex;gap:7px;justify-content:flex-end">'+
+            '<button class="btn bx bsm" data-action="modifdiag" data-id="'+id+'">✏️ Modificar</button>'+
+            '<button class="btn bp bsm" data-action="guardarDiag" data-id="'+id+'">💾 Guardar</button>'+
+          '</div>'+
         '</div>';
       }).join('')+
       '</div></div>';
-  });
-
-  return '<div class="ib ib-p"><span>🔍</span><div>Este diagnóstico es independiente de los requisitos de inocuidad. Registra el resultado de la <strong>auditoría externa</strong> por requisito, departamento y porcentaje de cumplimiento.</div></div>'+
+  }).join('');
+  return '<div class="ib ib-p"><span>🔍</span><div>Diagnóstico de la auditoría externa. <strong>Visible solo para ti, directores con permiso y el cliente.</strong></div></div>'+
     '<div class="g4">'+
-      '<div class="kp"><div class="ks" style="background:var(--bl)"></div><div class="kl">Requisitos diagnosticados</div><div class="kv">'+total+'</div><div class="kn" style="color:var(--t3)">de '+Object.keys(RQ).length+'</div></div>'+
-      '<div class="kp"><div class="ks" style="background:var(--ok)"></div><div class="kl">100% cumplimiento</div><div class="kv" style="color:var(--ok)">'+(byPct[100]||0)+'</div></div>'+
-      '<div class="kp"><div class="ks" style="background:var(--wn)"></div><div class="kl">Promedio general</div><div class="kv">'+avgPct+'%</div></div>'+
-      '<div class="kp"><div class="ks" style="background:var(--pu)"></div><div class="kl">Documentados al 100%</div><div class="kv" style="color:var(--pu)">'+docPct+'%</div></div>'+
+      '<div class="kp"><div class="ks" style="background:var(--bl)"></div><div class="kl">Diagnosticados</div><div class="kv">'+diagnosticados+'</div><div class="kn" style="color:var(--t3)">de '+total+'</div></div>'+
+      '<div class="kp"><div class="ks" style="background:var(--ok)"></div><div class="kl">Al 100%</div><div class="kv" style="color:var(--ok)">'+al100+'</div></div>'+
+      '<div class="kp"><div class="ks" style="background:var(--wn)"></div><div class="kl">Promedio</div><div class="kv">'+prom+'%</div></div>'+
+      '<div class="kp"><div class="ks" style="background:var(--pu)"></div><div class="kl">Yo documento</div><div class="kv" style="color:var(--pu)">'+Math.round(diagnosticados/total*100)+'%</div></div>'+
     '</div>'+
     '<div class="g2" style="margin-bottom:10px">'+
-      '<div class="cd"><div class="ch"><div class="ctt">📊 % Cumplimiento por departamento (Yo documento)</div></div>'+deptBars+'</div>'+
-      '<div class="cd"><div class="ch"><div class="ctt">📋 Historial de diagnósticos guardados ('+DIAG_HIST.length+')</div><button class="btn bx bxs" onclick="exportDiag()">⬇ CSV</button></div>'+
-      (DIAG_HIST.length===0?'<div style="color:var(--t3);font-size:12px">Sin diagnósticos guardados aún.</div>':
-        DIAG_HIST.slice(0,5).map(function(h){return '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span>📋</span><div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+h.req+'</div><div style="font-size:9.5px;color:var(--t3)">'+h.dept+' · '+h.pct+'% · '+h.fecha+'</div></div><span class="pl '+(h.pct===100?'pl-g':h.pct>=50?'pl-a':'pl-r')+'">'+h.pct+'%</span></div>';}).join(''))+
+      '<div class="cd"><div class="ch"><div class="ctt">Avance por departamento</div></div>'+deptBars+'</div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">Historial guardado ('+DIAG_HIST.length+')</div><button class="btn bx bxs" onclick="exportDiag()">⬇ CSV</button></div>'+
+        (DIAG_HIST.length===0?'<div style="color:var(--t3);font-size:12px">Sin diagnósticos guardados.</div>':
+          DIAG_HIST.slice(0,6).map(function(h){return '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span>📋</span><div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+h.req+'</div><div style="font-size:9.5px;color:var(--t3)">'+h.dept+' · '+h.pct+'% · '+h.fecha+'</div></div><span class="pl '+(h.pct===100?'pl-g':h.pct>=50?'pl-a':'pl-r')+'">'+h.pct+'%</span></div>';}).join(''))+
       '</div>'+
     '</div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">'+
-      '<button class="btn bpu" onclick="guardarTodoDiag()">💾 Guardar todo el diagnóstico</button>'+
-      '<button class="btn bx" onclick="exportDiag()">⬇ Exportar CSV</button>'+
+      '<button class="btn bpu" onclick="guardarTodoDiag()">💾 Guardar todo</button>'+
+      '<button class="btn bx" onclick="exportDiag()">⬇ CSV</button>'+
     '</div>'+
-    reqRows;
-}
-
-function toggleDiagSys(id){var el=document.getElementById(id);if(el)el.classList.toggle('H');}
-
-async function guardarDiag(id){
-  var dept=document.getElementById('dg-dept-'+id)&&document.getElementById('dg-dept-'+id).value;
-  var pct=parseInt(document.getElementById('dg-pct-'+id)&&document.getElementById('dg-pct-'+id).value)||0;
-  var obs=document.getElementById('dg-obs-'+id)&&document.getElementById('dg-obs-'+id).value;
-  var tend=document.getElementById('dg-tend-'+id)&&document.getElementById('dg-tend-'+id).value;
-  var mej=document.getElementById('dg-mej-'+id)&&document.getElementById('dg-mej-'+id).value;
-  var fecha=new Date().toLocaleString('es-MX');
-  DIAG[id]={dept:dept,pct:pct,obs:obs,tendencia:tend,mejora:mej,fecha:fecha};
-  DIAG_HIST.unshift({req:RQ[id]?RQ[id].name:id,dept:dept||'Sin asignar',pct:pct,obs:obs,fecha:fecha});
-  // Save to Supabase
-  if(PJ){
-    await _sb.from('diagnosticos').upsert({
-      proyecto_id:PJ.id||PJ.nombre,req_id:id,departamento:dept||'',
-      porcentaje:pct,observaciones:obs||'',tendencias:tend||'',mejoras:mej||'',
-      actualizado_por:ME.n,updated_at:new Date().toISOString()
-    },{onConflict:'proyecto_id,req_id'});
-  }
-  sT('💾 Diagnóstico guardado: '+( RQ[id]?RQ[id].name:id)+' · '+pct+'%');
-}
-
-async function guardarTodoDiag(){
-  var ids=Object.keys(RQ);
-  var saved=0;
-  for(var i=0;i<ids.length;i++){
-    var id=ids[i];
-    var deptEl=document.getElementById('dg-dept-'+id);
-    var pctEl=document.getElementById('dg-pct-'+id);
-    var obsEl=document.getElementById('dg-obs-'+id);
-    var tendEl=document.getElementById('dg-tend-'+id);
-    var mejEl=document.getElementById('dg-mej-'+id);
-    if(!pctEl) continue;
-    var dept=deptEl?deptEl.value:'';
-    var pct=parseInt(pctEl.value)||0;
-    var obs=obsEl?obsEl.value:'';
-    var tend=tendEl?tendEl.value:'';
-    var mej=mejEl?mejEl.value:'';
-    DIAG[id]={dept:dept,pct:pct,obs:obs,tendencia:tend,mejora:mej,fecha:new Date().toLocaleString('es-MX')};
-    saved++;
-    if(PJ){
-      await _sb.from('diagnosticos').upsert({
-        proyecto_id:PJ.id||PJ.nombre,req_id:id,departamento:dept||'',
-        porcentaje:pct,observaciones:obs||'',tendencias:tend||'',mejoras:mej||'',
-        actualizado_por:ME.n,updated_at:new Date().toISOString()
-      },{onConflict:'proyecto_id,req_id'});
-    }
-  }
-  sT('✅ Diagnóstico completo guardado · '+saved+' requisitos');
-  admView('diagnostico');
+    reqForms;
 }
 
 function exportDiag(){
@@ -1067,8 +1016,8 @@ function vTareas(){
       '<textarea class="fi2" id="nt-inst" rows="3" placeholder="Instrucciones detalladas para el departamento..."></textarea>'+
     '</div>'+
     '<div class="uzn" data-action="clickntfile">'+
-      '<input type="file" id="nt-file" style="display:none" multiple>'+
-      '<div style="font-size:11.5px;color:var(--t3)">📎 Adjuntar documentos de referencia (opcional)</div>'+
+      '<input type="file" id="nt-file" style="display:none" multiple onchange="addNtFiles(this)">'+
+      '<div style="font-size:11.5px;color:var(--t3)" id="nt-files-list">📎 Adjuntar documentos de referencia (opcional)</div>'+
     '</div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
       '<button class="btn bp" onclick="guardarNuevaTarea()">✅ Crear tarea</button>'+
@@ -1078,6 +1027,17 @@ function vTareas(){
   return kpis+form+rows;
 }
 
+var _ntFiles=[];
+function addNtFiles(inp){
+  if(!inp||!inp.files) return;
+  if(!window._ntFiles) window._ntFiles=[];
+  var list=[];
+  for(var i=0;i<inp.files.length;i++) window._ntFiles.push(inp.files[i].name);
+  var nl=document.getElementById('nt-files-list');
+  if(nl) nl.innerHTML=window._ntFiles.map(function(n){return '<div style="color:var(--ok);font-size:10.5px">✅ '+n+'</div>';}).join('');
+  sT('📎 '+inp.files.length+' archivo(s) adjuntos');
+}
+
 function guardarNuevaTarea(){
   var rid=document.getElementById('nt-req')&&document.getElementById('nt-req').value;
   var titulo=document.getElementById('nt-titulo')&&document.getElementById('nt-titulo').value.trim();
@@ -1085,7 +1045,8 @@ function guardarNuevaTarea(){
   var fecha=document.getElementById('nt-fecha')&&document.getElementById('nt-fecha').value;
   var inst=document.getElementById('nt-inst')&&document.getElementById('nt-inst').value.trim();
   if(!rid||!titulo||!fecha){sT('Completa título, requisito y fecha límite');return;}
-  var t=crearTarea(rid,titulo,inst,[],fecha,depto);
+  var t=crearTarea(rid,titulo,inst,_ntFiles.slice(),fecha,depto);
+  _ntFiles=[];
   addH(rid,'Tarea creada: '+t.num+' · '+titulo,ME.n,'#7C3AED','pl-p','Tarea');
   sT('✅ Tarea '+t.num+' creada para '+depto);
   admView('tareas');
@@ -1401,10 +1362,16 @@ function admView(id){
   else if(id==='deptos') mc.innerHTML=vDeptos();
   else if(id==='validar') mc.innerHTML=vValidar();
   else if(id==='reporte') mc.innerHTML=vReporte();
-  else if(id==='diagnostico') mc.innerHTML=vDiagnostico();
+  else if(id==='diagnostico'){
+    if(RL==='admin'||RL==='cli'||(RL==='dir'&&ME.perm_diag)) mc.innerHTML=vDiagnostico();
+    else mc.innerHTML='<div class="cd"><div class="ctt">🔒 No tienes permiso para ver el diagnóstico.</div></div>';
+  }
   else if(id==='tareas') mc.innerHTML=vTareas();
   else if(id==='tarea-detail') mc.innerHTML=vTareaDetail(window._tareaCtx);
-  else if(id==='diagnostico') mc.innerHTML=vDiagnostico();
+  else if(id==='diagnostico'){
+    if(RL==='admin'||RL==='cli'||(RL==='dir'&&ME.perm_diag)) mc.innerHTML=vDiagnostico();
+    else mc.innerHTML='<div class="cd"><div class="ctt">🔒 No tienes permiso para ver el diagnóstico.</div></div>';
+  }
   else if(id==='tareas') mc.innerHTML=vTareas();
   else if(id==='tarea-detail') mc.innerHTML=vTareaDetail(window._tareaCtx);
   else mc.innerHTML='<div class="cd"><div class="ctt">'+id+'</div></div>';
@@ -1605,6 +1572,9 @@ function vNuevoDirector(){
     '</div>'+
     '<div class="fr">'+
     '<div class="fg2"><label class="fl2">Contraseña temporal *</label><div style="display:flex;gap:6px"><input class="fi2" id="nd2-pass" placeholder="Min. 6 caracteres" style="flex:1"><button class="btn bx bxs" onclick="genP(\'nd2-pass\')">Gen</button></div></div>'+
+    '<div class="fg2"><label class="fl2">Permiso: ver Diagnóstico</label>'+
+    '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;padding:8px 0"><input type="checkbox" id="nd2-diag" style="accent-color:var(--bl)"> Permitir ver el Diagnóstico de Resultados</label>'+
+    '</div>'+
     '<div class="fg2"><label class="fl2">Proyecto a asignar</label><select class="fsl" id="nd2-proj"><option value="">Sin asignar por ahora</option>'+PROJS.map(function(p){return '<option value="'+p.id+'">'+p.nombre+'</option>';}).join('')+'</select></div>'+
     '</div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
@@ -2005,8 +1975,10 @@ async function guardarDirector(){
   if(!nom||!em||!pw){sT('Completa nombre, correo y contraseña');return;}
   var proj=document.getElementById('nd2-proj')&&document.getElementById('nd2-proj').value;
   var fi='DIR-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+  var verDiag=document.getElementById('nd2-diag')&&document.getElementById('nd2-diag').checked;
   var {data:{session:cur}}=await _sb.auth.getSession();
-  var r=await _sb.auth.signUp({email:em,password:pw,options:{data:{nombre:nom,rol:'director',acceso:'director',firma:fi,empresa:proj||'apcde',creado_por:CU?CU.email:'admin'}}});
+  var permDiag=document.getElementById('nd2-perm-diag')&&document.getElementById('nd2-perm-diag').checked;
+  var r=await _sb.auth.signUp({email:em,password:pw,options:{data:{nombre:nom,rol:'director',acceso:'director',firma:fi,empresa:proj||'apcde',perm_diag:permDiag,creado_por:CU?CU.email:'admin'}}});
   if(cur) await _sb.auth.setSession({access_token:cur.access_token,refresh_token:cur.refresh_token});
   if(r.error){sT('Error: '+r.error.message);return;}
   DIRS.push({n:nom,em:em,fi:fi,activo:false,proyectos:proj?( PROJS.find(function(p){return p.id===proj;})&&PROJS.find(function(p){return p.id===proj;}).nombre)||proj:'Sin proyecto'});
@@ -2737,6 +2709,7 @@ document.addEventListener('click',function(e){
   else if(a==='proponerdias'){ var rd=el.dataset.rid; var dt=el.dataset.dest; var diasEl=document.getElementById('inter-dias-'+rd+'-'+(dt||'').replace(/ /g,'_')); var horaEl=document.getElementById('inter-hora-'+rd+'-'+(dt||'').replace(/ /g,'_')); if(!diasEl||!diasEl.value){sT('Escribe los días');return;} var txt2=ME.r+' propone '+diasEl.value+' días'+(horaEl&&horaEl.value?' a las '+horaEl.value:''); if(!SEM[rd].comunicados)SEM[rd].comunicados=[]; SEM[rd].comunicados.unshift({txt:txt2,dest:dt,fecha:new Date().toLocaleString('es-MX'),de:ME.r}); addH(rd,txt2,ME.r,'#7C3AED','pl-p','Propuesta'); sT('Propuesta enviada a '+dt); openDepReq(rd); }
   else if(a==='delproj') delProj(parseInt(idx));
   else if(a==='guardarDiag') guardarDiag(id);
+  else if(a==='modifdiag') modifDiag(id);
   else if(a==='envmsg'){enviarMsgTarea(el.dataset.tid,el.dataset.rid);}
   else if(a==='subtareadoc'){var f=document.getElementById('tarea-file-'+el.dataset.tid);if(f)f.click();}
   else if(a==='valtarea'){validarTarea(el.dataset.tid,el.dataset.rid);}
@@ -2746,6 +2719,17 @@ document.addEventListener('click',function(e){
   else if(a==='clickntfile'){var f=document.getElementById('nt-file');if(f)f.click();}
   else if(a==='hidetareaform'){var f=document.getElementById('nueva-tarea-form');if(f)f.style.display='none';}
   else if(a==='newtarea'){admView('tareas');setTimeout(function(){var f=document.getElementById('nueva-tarea-form');if(f){f.style.display='block';var s=document.getElementById('nt-req');if(s)s.value=el.dataset.rid||s.options[0].value;}},100);}
+  else if(a==='diagnapply'){
+    var mid=el.dataset.id;
+    var mej=document.getElementById('dg-mej-'+mid);
+    if(mej) mej.value=el.checked?'N/A':'';
+  }
+  else if(a==='togdiag'){var el2=document.getElementById('diag-sys-'+el.dataset.sys);if(el2)el2.classList.toggle('H');}
+  else if(a==='modifdiag'){
+    var dg=DIAG[el.dataset.id];
+    if(dg){dg.fecha=null;sT('Puedes modificar y volver a guardar');}
+    admView('diagnostico');
+  }
   else if(a==='diagsys'){var sysId=el.dataset.sys;var el2=document.getElementById('ds-'+(sysId||'').replace(/[^a-z]/gi,''));if(el2)el2.classList.toggle('H');}
 });
 
