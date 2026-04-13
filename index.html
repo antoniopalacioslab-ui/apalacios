@@ -216,6 +216,7 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
       <button class="ni" id="adm-ni-directores" data-action="admview" data-id="directores">👤 Directores</button>
       <button class="ni" id="adm-ni-pipeline" data-action="admview" data-id="pipeline">📋 Pipeline</button>
       <button class="ni" id="adm-ni-diagnostico" data-action="admview" data-id="diagnostico">🔍 Diagnóstico de resultados</button>
+      <button class="ni" id="adm-ni-tareas" data-action="admview" data-id="tareas">✅ Tareas <span class="nbdgr" id="nb-msg-pend"></span></button>
       <span class="ns">Proyecto activo</span>
       <div id="adm-proj-list"></div>
       <span class="ns" id="adm-ns-proj" style="display:none">Gestión del proyecto</span>
@@ -225,6 +226,7 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
       <button class="ni H" id="adm-ni-validar" data-action="admview" data-id="validar">✅ Validar docs <span class="nbdg" id="nb-pend"></span></button>
       <button class="ni H" id="adm-ni-reporte" data-action="admview" data-id="reporte">📊 Reporte / CSV</button>
       <button class="ni" id="adm-ni-diagnostico" data-action="admview" data-id="diagnostico">🔍 Diagnóstico de resultados</button>
+      <button class="ni" id="adm-ni-tareas" data-action="admview" data-id="tareas">✅ Tareas <span class="nbdgr" id="nb-msg-pend"></span></button>
       <button class="ni" data-action="logout" style="color:rgba(255,100,100,.6);margin-top:12px">🚪 Cerrar sesión</button>
     </div>
   </div>
@@ -256,6 +258,7 @@ html,body{height:100%;font-family:var(--fn);background:var(--bg);color:var(--t1)
       <button class="ni" id="ni-cli-dudas" data-action="cliview" data-id="cli-dudas">❓ Dudas y consultas</button>
       <button class="ni" id="ni-cli-vcall" data-action="cliview" data-id="cli-vcall">📹 Videollamada</button>
       <button class="ni" id="adm-ni-diagnostico" data-action="admview" data-id="diagnostico">🔍 Diagnóstico de resultados</button>
+      <button class="ni" id="adm-ni-tareas" data-action="admview" data-id="tareas">✅ Tareas <span class="nbdgr" id="nb-msg-pend"></span></button>
       <button class="ni" data-action="logout" style="color:rgba(255,100,100,.6);margin-top:12px">🚪 Cerrar sesión</button>
     </div>
   </div>
@@ -599,7 +602,55 @@ function showScreen(s){
 /* ══════════════════════════════════════
    DIAGNÓSTICO DE RESULTADOS
 ══════════════════════════════════════ */
-var DIAG={};  // {req_id: {dept, responsable, pct, obs, tendencia, mejora, fecha}}
+var DIAG={};
+// TAREAS system
+var TAREAS={};  // {req_id: [{id, num, titulo, instruccion, docs_admin, docs_dep, fecha_limite, estado, mensajes, validacion}]}
+var TAREA_CTR={};  // counter per req_id
+
+function calcSemaforo(fecha_limite, completado){
+  if(completado) return 'g';
+  if(!fecha_limite) return 'gr';
+  var ahora=new Date();
+  var limite=new Date(fecha_limite);
+  var total=limite-new Date(Math.min(ahora,limite)-Math.max(0,limite-ahora));
+  var restante=limite-ahora;
+  if(restante<=0) return 'r';
+  // Get original total time - we need to store start time
+  // Approximate: use restante vs a reference
+  var pct=restante/(limite-new Date(limite.getTime()-(24*60*60*1000*30)));
+  // Simpler: just use absolute time remaining
+  if(restante>0){
+    var hrs=restante/(1000*60*60);
+    var totalHrs=(limite-new Date(limite.getTime()-(7*24*60*60*1000)))/(1000*60*60);
+    var p=restante/(limite-(new Date(limite)).setDate?restante:1);
+    if(hrs>6) return 'g';  // placeholder
+    if(hrs>1) return 'a';
+    return 'r';
+  }
+  return 'r';
+}
+
+function calcSemaforoByPct(inicio, fin){
+  // 75% green, 12.5% yellow, 12.5% red
+  var ahora=new Date();
+  var start=new Date(inicio);
+  var end=new Date(fin);
+  var total=end-start;
+  if(total<=0) return 'r';
+  var elapsed=ahora-start;
+  var pct=elapsed/total;
+  if(pct<0) return 'g';
+  if(pct>=1) return 'r';
+  if(pct<0.75) return 'g';
+  if(pct<0.875) return 'a';
+  return 'r';
+}
+
+function getSemaforoTarea(t){
+  if(t.estado==='completada') return 'g';
+  if(!t.fecha_limite) return 'gr';
+  return calcSemaforoByPct(t.fecha_inicio||t.created_at||new Date(new Date(t.fecha_limite).getTime()-7*24*60*60*1000).toISOString(), t.fecha_limite);
+}  // {req_id: {dept, responsable, pct, obs, tendencia, mejora, fecha}}
 var DIAG_HIST=[];  // History of all saved diagnostics
 
 function vDiagnostico(){
@@ -848,6 +899,434 @@ function exportDiag(){
   sT('📊 Diagnóstico exportado');
 }
 
+
+/* ══════════════════════════════════════
+   SISTEMA DE TAREAS
+══════════════════════════════════════ */
+
+function crearTarea(rid, titulo, instruccion, docs, fecha_limite, depto){
+  if(!TAREAS[rid]) TAREAS[rid]=[];
+  if(!TAREA_CTR[rid]) TAREA_CTR[rid]=0;
+  TAREA_CTR[rid]++;
+  var num=String(TAREA_CTR[rid]).padStart(3,'0');
+  var id_req=rid.toUpperCase();
+  var tarea={
+    id:'T-'+rid+'-'+Date.now(),
+    num:'R-'+id_req+'-T'+num,
+    titulo:titulo,
+    instruccion:instruccion,
+    docs_admin:docs||[],
+    docs_dep:[],
+    fecha_inicio:new Date().toISOString(),
+    fecha_limite:fecha_limite,
+    departamento:depto,
+    estado:'activa',
+    mensajes:[{de:'admin',txt:instruccion,fecha:new Date().toLocaleString('es-MX'),leido:false}],
+    validacion:null,
+    created_at:new Date().toISOString()
+  };
+  TAREAS[rid].push(tarea);
+  // Save to Supabase
+  if(PJ){
+    _sb.from('tareas').insert({
+      proyecto_id:PJ.id||PJ.nombre,req_id:rid,num:tarea.num,titulo:titulo,
+      instruccion:instruccion,departamento:depto,fecha_inicio:tarea.fecha_inicio,
+      fecha_limite:fecha_limite,estado:'activa',
+      mensajes:JSON.stringify(tarea.mensajes)
+    }).then(function(r){if(r.error)console.error('Error saving tarea:',r.error);});
+  }
+  // Update alerts
+  updTareasAlerts();
+  return tarea;
+}
+
+function getSemaColor(t){
+  var e=getSemaforoTarea(t);
+  return e==='g'?'#16A34A':e==='a'?'#D97706':'#DC2626';
+}
+function getSemaEmoji(t){
+  var e=getSemaforoTarea(t);
+  if(t.estado==='completada') return '✅';
+  return e==='g'?'🟢':e==='a'?'🟡':'🔴';
+}
+function getSemaLabel(t){
+  if(t.estado==='completada') return 'Completada';
+  var e=getSemaforoTarea(t);
+  return e==='g'?'En tiempo':e==='a'?'Cerca del límite':'Vencida / Urgente';
+}
+
+function calcTimeLeft(fecha_limite){
+  if(!fecha_limite) return '';
+  var ahora=new Date(),lim=new Date(fecha_limite);
+  var diff=lim-ahora;
+  if(diff<=0) return 'VENCIDA';
+  var days=Math.floor(diff/(1000*60*60*24));
+  var hrs=Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+  if(days>0) return days+'d '+hrs+'h restantes';
+  return hrs+'h restantes';
+}
+
+function updTareasAlerts(){
+  // Count unread messages for admin
+  var unread=0;
+  Object.values(TAREAS).forEach(function(ts){
+    ts.forEach(function(t){
+      (t.mensajes||[]).forEach(function(m){
+        if(m.de!=='admin'&&!m.leido) unread++;
+      });
+    });
+  });
+  var nb=document.getElementById('nb-msg-pend');
+  if(nb) nb.textContent=unread||'';
+  // Count active tasks for dept
+  var misT=getMisTareas();
+  var nb2=document.getElementById('nb-dep-tasks');
+  if(nb2) nb2.textContent=misT.filter(function(t){return t.estado==='activa';}).length||'';
+}
+
+function getMisTareas(){
+  var all=[];
+  Object.keys(TAREAS).forEach(function(rid){
+    (TAREAS[rid]||[]).forEach(function(t){
+      if(t.departamento===ME.r||t.departamento==='todos') all.push(Object.assign({},t,{rid:rid}));
+    });
+  });
+  return all;
+}
+
+function vTareas(){
+  // Admin view - all tasks grouped by req
+  var allT=[];
+  Object.keys(TAREAS).forEach(function(rid){
+    (TAREAS[rid]||[]).forEach(function(t){allT.push(Object.assign({},t,{rid:rid}));});
+  });
+  var verdes=allT.filter(function(t){return getSemaforoTarea(t)==='g'&&t.estado==='activa';}).length;
+  var amarillos=allT.filter(function(t){return getSemaforoTarea(t)==='a'&&t.estado==='activa';}).length;
+  var rojos=allT.filter(function(t){return getSemaforoTarea(t)==='r'&&t.estado==='activa';}).length;
+  var completadas=allT.filter(function(t){return t.estado==='completada';}).length;
+
+  var kpis='<div class="g4">'+
+    '<div class="kp"><div class="ks" style="background:var(--ok)"></div><div class="kl">En tiempo 🟢</div><div class="kv" style="color:var(--ok)">'+verdes+'</div></div>'+
+    '<div class="kp"><div class="ks" style="background:var(--wn)"></div><div class="kl">Cerca límite 🟡</div><div class="kv" style="color:var(--wn)">'+amarillos+'</div></div>'+
+    '<div class="kp"><div class="ks" style="background:var(--er)"></div><div class="kl">Urgente / Vencida 🔴</div><div class="kv" style="color:var(--er)">'+rojos+'</div></div>'+
+    '<div class="kp"><div class="ks" style="background:var(--bl)"></div><div class="kl">Completadas ✅</div><div class="kv">'+completadas+'</div></div>'+
+  '</div>';
+
+  // Group by requirement
+  var grupos={};
+  allT.forEach(function(t){
+    if(!grupos[t.rid]) grupos[t.rid]=[];
+    grupos[t.rid].push(t);
+  });
+
+  var rows=Object.keys(grupos).map(function(rid){
+    var ts=grupos[rid];
+    return '<div class="cd">'+
+      '<div class="ch">'+
+        '<div class="ctt">'+(RQ[rid]?RQ[rid].sys+' · '+RQ[rid].name:'Req '+rid)+'</div>'+
+        '<button class="btn bp bxs" data-action="newtarea" data-rid="'+rid+'">+ Nueva tarea</button>'+
+      '</div>'+
+      ts.map(function(t){
+        var se=getSemaEmoji(t);
+        var sc=getSemaColor(t);
+        var tl=calcTimeLeft(t.fecha_limite);
+        var unread=(t.mensajes||[]).filter(function(m){return m.de!=='admin'&&!m.leido;}).length;
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:#F9FAFB;border:1px solid var(--bd);border-radius:9px;margin-bottom:5px;cursor:pointer" data-action="opentarea" data-tid="'+t.id+'" data-rid="'+rid+'">'+
+          '<div style="font-size:18px">'+se+'</div>'+
+          '<div style="flex:1">'+
+            '<div style="font-size:12px;font-weight:700">'+t.num+' · '+t.titulo+'</div>'+
+            '<div style="font-size:10px;color:var(--t3)">'+t.departamento+' · '+tl+'</div>'+
+          '</div>'+
+          (unread?'<div style="background:var(--er);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">'+unread+'</div>':'')+
+          '<span class="pl '+(t.estado==='completada'?'pl-g':getSemaforoTarea(t)==='g'?'pl-g':getSemaforoTarea(t)==='a'?'pl-a':'pl-r')+'">'+getSemaLabel(t)+'</span>'+
+          '<span style="color:var(--t3);font-size:12px">›</span>'+
+        '</div>';
+      }).join('')+
+    '</div>';
+  }).join('')||'<div class="cd"><div style="text-align:center;padding:24px;color:var(--t3)">Sin tareas creadas aún. Abre un requisito y crea la primera tarea.</div></div>';
+
+  // Create tarea form
+  var form='<div class="cd" id="nueva-tarea-form" style="border:2px solid var(--bl)">'+
+    '<div class="ch"><div class="ctt">➕ Crear nueva tarea</div><button class="btn bx bxs" data-action="hidetareaform">✕</button></div>'+
+    '<div class="fg2"><label class="fl2">Requisito</label>'+
+      '<select class="fsl" id="nt-req">'+Object.keys(RQ).map(function(id){return '<option value="'+id+'">'+RQ[id].sys+' · '+RQ[id].name+'</option>';}).join('')+'</select>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="fg2"><label class="fl2">Título de la tarea</label><input class="fi2" id="nt-titulo" placeholder="Ej: Entregar procedimiento de limpieza"></div>'+
+      '<div class="fg2"><label class="fl2">Departamento responsable</label>'+
+        '<select class="fsl" id="nt-depto">'+
+          '<option value="todos">Todos los departamentos</option>'+
+          DPS.map(function(d){return '<option value="'+d.n+'">'+d.n+'</option>';}).join('')+
+        '</select>'+
+      '</div>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="fg2"><label class="fl2">Fecha límite *</label><input class="fi2" id="nt-fecha" type="datetime-local"></div>'+
+    '</div>'+
+    '<div class="fg2"><label class="fl2">Instrucciones / mensaje inicial</label>'+
+      '<textarea class="fi2" id="nt-inst" rows="3" placeholder="Instrucciones detalladas para el departamento..."></textarea>'+
+    '</div>'+
+    '<div class="uzn" data-action="clickntfile">'+
+      '<input type="file" id="nt-file" style="display:none" multiple>'+
+      '<div style="font-size:11.5px;color:var(--t3)">📎 Adjuntar documentos de referencia (opcional)</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+      '<button class="btn bp" onclick="guardarNuevaTarea()">✅ Crear tarea</button>'+
+    '</div>'+
+  '</div>';
+
+  return kpis+form+rows;
+}
+
+function guardarNuevaTarea(){
+  var rid=document.getElementById('nt-req')&&document.getElementById('nt-req').value;
+  var titulo=document.getElementById('nt-titulo')&&document.getElementById('nt-titulo').value.trim();
+  var depto=document.getElementById('nt-depto')&&document.getElementById('nt-depto').value;
+  var fecha=document.getElementById('nt-fecha')&&document.getElementById('nt-fecha').value;
+  var inst=document.getElementById('nt-inst')&&document.getElementById('nt-inst').value.trim();
+  if(!rid||!titulo||!fecha){sT('Completa título, requisito y fecha límite');return;}
+  var t=crearTarea(rid,titulo,inst,[],fecha,depto);
+  addH(rid,'Tarea creada: '+t.num+' · '+titulo,ME.n,'#7C3AED','pl-p','Tarea');
+  sT('✅ Tarea '+t.num+' creada para '+depto);
+  admView('tareas');
+}
+
+function vTareaDetail(ctx){
+  if(!ctx) return '<div class="cd"><div class="ctt">Tarea no encontrada</div></div>';
+  var t=ctx.tarea;var rid=ctx.rid;
+  var se=getSemaEmoji(t);var sc=getSemaColor(t);var tl=calcTimeLeft(t.fecha_limite);
+  var isAdmin=(RL==='admin'||RL==='dir');
+
+  var msgs=(t.mensajes||[]).map(function(m){
+    var isMe=(isAdmin&&m.de==='admin')||(!isAdmin&&m.de!=='admin');
+    return '<div style="display:flex;'+(isMe?'justify-content:flex-end':'')+';margin-bottom:8px">'+
+      '<div style="max-width:75%;background:'+(isMe?'linear-gradient(135deg,var(--bl),var(--b2))':'#F1F5F9')+';color:'+(isMe?'#fff':'var(--t1)')+';border-radius:'+(isMe?'12px 12px 2px 12px':'12px 12px 12px 2px')+';padding:9px 12px">'+
+        '<div style="font-size:11.5px;font-weight:600;margin-bottom:2px">'+(isMe?'Tú':m.de)+'</div>'+
+        '<div style="font-size:12px;line-height:1.5">'+m.txt+'</div>'+
+        '<div style="font-size:9.5px;opacity:.6;margin-top:4px">'+m.fecha+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  var docsAdmin=(t.docs_admin||[]).map(function(d){
+    return '<div class="di"><span>📄</span><div style="flex:1;font-size:11.5px;font-weight:600">'+d+'</div><button class="btn bx bxs" onclick="sT(&quot;Descargando...&quot;)">↓</button></div>';
+  }).join('')||'<div style="color:var(--t3);font-size:11px">Sin documentos adjuntos.</div>';
+
+  var docsDep=(t.docs_dep||[]).map(function(d){
+    var vc=isAdmin?'<button class="btn bok bxs" data-action="valdoctarea" data-tid="'+t.id+'" data-rid="'+rid+'" data-nm="'+d.nm+'">Validar</button>':'';
+    return '<div class="di"><span>📄</span><div style="flex:1"><div style="font-size:11.5px;font-weight:600">'+d.nm+'</div><div style="font-size:9.5px;color:var(--t3)">'+d.fe+'</div></div><span class="pl '+(d.validado?'pl-g':'pl-a')+'">'+(d.validado?'✅ Validado':'Pendiente')+'</span>'+vc+'<button class="btn bx bxs" onclick="sT(&quot;Descargando...&quot;)">↓</button></div>';
+  }).join('')||'<div style="color:var(--t3);font-size:11px">Sin documentos entregados aún.</div>';
+
+  var validForm=isAdmin?'<div style="background:#F9FAFB;border:1px solid var(--bd);border-radius:9px;padding:10px;margin-top:8px">'+
+    '<div style="font-size:11px;font-weight:700;margin-bottom:7px">✅ Validación del consultor (independiente del semáforo)</div>'+
+    '<div class="fr">'+
+      '<div class="fg2"><label class="fl2">Resultado</label>'+
+        '<select class="fsl" id="val-res-'+t.id+'">'+
+          '<option value="">Sin validar</option>'+
+          '<option value="aprobado">✅ Aprobado</option>'+
+          '<option value="aprobado_tardio">✅ Aprobado con entrega tardía justificada</option>'+
+          '<option value="observaciones">⚠️ Aprobado con observaciones</option>'+
+          '<option value="rechazado">❌ Rechazado — requiere reentrega</option>'+
+        '</select>'+
+      '</div>'+
+      '<div class="fg2"><label class="fl2">Observaciones del consultor</label>'+
+        '<input class="fi2" id="val-obs-'+t.id+'" placeholder="Justificación o comentarios...">'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px">'+
+      '<button class="btn bp bsm" data-action="valtarea" data-tid="'+t.id+'" data-rid="'+rid+'">💾 Guardar validación</button>'+
+      '<button class="btn bok bsm" data-action="comptarea" data-tid="'+t.id+'" data-rid="'+rid+'">✅ Marcar completada</button>'+
+    '</div>'+
+  '</div>':'';
+
+  return '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'+
+    '<div style="font-size:36px">'+se+'</div>'+
+    '<div style="flex:1">'+
+      '<div style="font-size:10px;color:var(--t3);font-weight:700;margin-bottom:2px">'+(RQ[rid]?RQ[rid].sys+' · '+RQ[rid].name:'')+'</div>'+
+      '<div style="font-size:18px;font-weight:800">'+t.num+' · '+t.titulo+'</div>'+
+      '<div style="display:flex;gap:7px;margin-top:5px;flex-wrap:wrap">'+
+        '<span class="pl pl-b">'+t.departamento+'</span>'+
+        '<span class="pl '+(getSemaforoTarea(t)==='g'?'pl-g':getSemaforoTarea(t)==='a'?'pl-a':'pl-r')+'">'+getSemaLabel(t)+'</span>'+
+        '<span style="font-size:11px;font-weight:700;color:'+sc+'">⏱ '+tl+'</span>'+
+        (t.validacion?'<span class="pl pl-g">'+t.validacion.resultado+'</span>':'')+
+      '</div>'+
+    '</div>'+
+    (isAdmin?'<button class="btn bx bsm" data-action="admview" data-id="tareas">← Tareas</button>':'<button class="btn bx bsm" data-action="depview" data-id="dep-tareas">← Mis tareas</button>')+
+  '</div>'+
+  '<div class="g2">'+
+    '<div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">📄 Documentos de referencia (APCDE)</div></div>'+docsAdmin+'</div>'+
+      '<div class="cd"><div class="ch"><div class="ctt">📎 Documentos entregados por el departamento</div>'+
+        (!isAdmin?'<button class="btn bp bxs" data-action="subtareadoc" data-tid="'+t.id+'">Subir</button>'+
+        '<input type="file" id="tarea-file-'+t.id+'" style="display:none" onchange="window._stid=\''+t.id+'\';window._srid=\''+rid+'\';subirDocTarea(this,window._stid,window._srid)">':'')+
+      '</div>'+docsDep+'</div>'+
+      validForm+
+      (t.validacion?'<div class="cd"><div class="ctt" style="margin-bottom:6px">Validación guardada</div>'+
+        '<div style="font-size:12px;font-weight:600;color:var(--ok)">'+t.validacion.resultado+'</div>'+
+        (t.validacion.obs?'<div style="font-size:11px;color:var(--t2);margin-top:3px">'+t.validacion.obs+'</div>':'')+
+      '</div>':'')+
+    '</div>'+
+    '<div class="cd" style="display:flex;flex-direction:column;height:460px">'+
+      '<div class="ch"><div class="ctt">💬 Mensajes</div></div>'+
+      '<div id="tarea-msgs-'+t.id+'" style="flex:1;overflow-y:auto;padding:5px 0">'+msgs+'</div>'+
+      '<div style="border-top:1px solid var(--bd);padding-top:8px;margin-top:6px;display:flex;gap:7px">'+
+        '<textarea class="fi2" id="tarea-msg-inp-'+t.id+'" rows="2" placeholder="Escribe tu mensaje..." style="flex:1;resize:none"></textarea>'+
+        '<button class="btn bp bsm" data-action="envmsg" data-tid="'+t.id+'" data-rid="'+rid+'" style="align-self:flex-end">Enviar</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+function opentarea(tid, rid){
+  var ts=TAREAS[rid]||[];
+  var t=ts.find(function(x){return x.id===tid;});
+  if(!t) return;
+  // Mark messages as read
+  (t.mensajes||[]).forEach(function(m){if(m.de!=='admin')m.leido=true;});
+  updTareasAlerts();
+  window._tareaCtx={tarea:t,rid:rid};
+  if(RL==='admin'||RL==='dir') admView('tarea-detail');
+  else {
+    document.getElementById('dep-title').textContent=t.num+' · '+t.titulo;
+    document.getElementById('dep-mc').innerHTML=vTareaDetail({tarea:t,rid:rid});
+  }
+}
+
+function enviarMsgTarea(tid, rid){
+  var inp=document.getElementById('tarea-msg-inp-'+tid);
+  if(!inp||!inp.value.trim()) return;
+  var txt=inp.value.trim();
+  var ts=TAREAS[rid]||[];
+  var t=ts.find(function(x){return x.id===tid;});
+  if(!t) return;
+  var msg={de:RL==='admin'||RL==='dir'?'admin':ME.r,txt:txt,fecha:new Date().toLocaleString('es-MX'),leido:false};
+  t.mensajes.push(msg);
+  inp.value='';
+  updTareasAlerts();
+  // Refresh msgs
+  var mc=document.getElementById('tarea-msgs-'+tid);
+  if(mc){
+    var isAdmin=(RL==='admin'||RL==='dir');
+    var newMsg=document.createElement('div');
+    newMsg.style='display:flex;'+(isAdmin?'justify-content:flex-end':'')+';margin-bottom:8px';
+    newMsg.innerHTML='<div style="max-width:75%;background:'+(isAdmin?'linear-gradient(135deg,var(--bl),var(--b2))':'#F1F5F9')+';color:'+(isAdmin?'#fff':'var(--t1)')+';border-radius:'+(isAdmin?'12px 12px 2px 12px':'12px 12px 12px 2px')+';padding:9px 12px"><div style="font-size:11.5px;font-weight:600;margin-bottom:2px">'+(isAdmin?'Tú':ME.r)+'</div><div style="font-size:12px;line-height:1.5">'+txt+'</div><div style="font-size:9.5px;opacity:.6;margin-top:4px">'+msg.fecha+'</div></div>';
+    mc.appendChild(newMsg);
+    mc.scrollTop=mc.scrollHeight;
+  }
+  sT('Mensaje enviado');
+}
+
+function subirDocTarea(inp, tid, rid){
+  if(!inp||!inp.files||!inp.files[0]) return;
+  var f=inp.files[0];
+  var ts=TAREAS[rid]||[];
+  var t=ts.find(function(x){return x.id===tid;});
+  if(!t) return;
+  t.docs_dep.push({nm:f.name,fe:new Date().toLocaleDateString('es-MX'),validado:false});
+  // Send notification message
+  t.mensajes.push({de:ME.r,txt:'Documento subido: '+f.name,fecha:new Date().toLocaleString('es-MX'),leido:false});
+  updTareasAlerts();
+  window._tareaCtx={tarea:t,rid:rid};
+  if(RL==='dep') document.getElementById('dep-mc').innerHTML=vTareaDetail({tarea:t,rid:rid});
+  sT('📎 Documento subido · Se notificó a APCDE');
+}
+
+function validarDocTarea(tid, rid, nm){
+  var ts=TAREAS[rid]||[];
+  var t=ts.find(function(x){return x.id===tid;});
+  if(!t) return;
+  var d=t.docs_dep.find(function(x){return x.nm===nm;});
+  if(d) d.validado=true;
+  window._tareaCtx={tarea:t,rid:rid};
+  admView('tarea-detail');
+  sT('✅ Documento validado: '+nm);
+}
+
+function validarTarea(tid, rid){
+  var ts=TAREAS[rid]||[];
+  var t=ts.find(function(x){return x.id===tid;});
+  if(!t) return;
+  var res=document.getElementById('val-res-'+tid)&&document.getElementById('val-res-'+tid).value;
+  var obs=document.getElementById('val-obs-'+tid)&&document.getElementById('val-obs-'+tid).value;
+  if(!res){sT('Selecciona un resultado de validación');return;}
+  t.validacion={resultado:res,obs:obs,fecha:new Date().toLocaleString('es-MX'),validador:ME.n};
+  t.mensajes.push({de:'admin',txt:'Validación: '+res+(obs?' · '+obs:''),fecha:new Date().toLocaleString('es-MX'),leido:false});
+  addH(rid,'Tarea validada: '+t.num+' · '+res,ME.n,'#16A34A','pl-g',res);
+  window._tareaCtx={tarea:t,rid:rid};
+  admView('tarea-detail');
+  sT('✅ Validación guardada');
+}
+
+function completarTarea(tid, rid){
+  var ts=TAREAS[rid]||[];
+  var t=ts.find(function(x){return x.id===tid;});
+  if(!t) return;
+  t.estado='completada';
+  t.mensajes.push({de:'admin',txt:'Tarea marcada como completada ✅',fecha:new Date().toLocaleString('es-MX'),leido:false});
+  addH(rid,'Tarea completada: '+t.num,ME.n,'#16A34A','pl-g','Completada');
+  updTareasAlerts();
+  admView('tareas');
+  sT('✅ Tarea '+t.num+' completada');
+}
+
+/* ── DEPT TASKS VIEW ── */
+function vDepTareas(){
+  var misTareas=getMisTareas();
+  var verdes=misTareas.filter(function(t){return getSemaforoTarea(t)==='g'&&t.estado==='activa';}).length;
+  var amarillos=misTareas.filter(function(t){return getSemaforoTarea(t)==='a'&&t.estado==='activa';}).length;
+  var rojos=misTareas.filter(function(t){return getSemaforoTarea(t)==='r'&&t.estado==='activa';}).length;
+  var completadas=misTareas.filter(function(t){return t.estado==='completada';}).length;
+
+  // Semaforo grande visual
+  var semBig='<div style="display:flex;gap:10px;margin-bottom:14px">'+
+    '<div style="flex:1;background:var(--ok2);border:2px solid var(--ok);border-radius:12px;padding:14px;text-align:center">'+
+      '<div style="font-size:28px">🟢</div><div style="font-size:20px;font-weight:800;color:var(--ok)">'+verdes+'</div>'+
+      '<div style="font-size:10.5px;color:var(--ok);font-weight:600">En tiempo</div>'+
+    '</div>'+
+    '<div style="flex:1;background:var(--wn2);border:2px solid var(--wn);border-radius:12px;padding:14px;text-align:center">'+
+      '<div style="font-size:28px">🟡</div><div style="font-size:20px;font-weight:800;color:var(--wn)">'+amarillos+'</div>'+
+      '<div style="font-size:10.5px;color:var(--wn);font-weight:600">Cerca del límite</div>'+
+    '</div>'+
+    '<div style="flex:1;background:var(--er2);border:2px solid var(--er);border-radius:12px;padding:14px;text-align:center">'+
+      '<div style="font-size:28px">🔴</div><div style="font-size:20px;font-weight:800;color:var(--er)">'+rojos+'</div>'+
+      '<div style="font-size:10.5px;color:var(--er);font-weight:600">Urgente / Vencida</div>'+
+    '</div>'+
+    '<div style="flex:1;background:#F1F5F9;border:2px solid var(--bd2);border-radius:12px;padding:14px;text-align:center">'+
+      '<div style="font-size:28px">✅</div><div style="font-size:20px;font-weight:800">'+completadas+'</div>'+
+      '<div style="font-size:10.5px;color:var(--t3);font-weight:600">Completadas</div>'+
+    '</div>'+
+  '</div>';
+
+  var taskRows=misTareas.length===0?'<div style="text-align:center;padding:24px;color:var(--t3)">No tienes tareas asignadas aún.</div>':
+    misTareas.map(function(t){
+      var se=getSemaEmoji(t);var sc=getSemaColor(t);var tl=calcTimeLeft(t.fecha_limite);
+      var unread=(t.mensajes||[]).filter(function(m){return m.de==='admin'&&!m.leido;}).length;
+      var hasDocsPend=(t.docs_dep||[]).filter(function(d){return !d.validado;}).length;
+      return '<div style="border:2px solid '+sc+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;background:'+(getSemaforoTarea(t)==='r'?'#FFF5F5':getSemaforoTarea(t)==='a'?'#FFFBEB':'#F0FDF4')+'" data-action="opentarea" data-tid="'+t.id+'" data-rid="'+t.rid+'">'+
+        '<div style="display:flex;align-items:center;gap:10px">'+
+          '<div style="font-size:28px">'+se+'</div>'+
+          '<div style="flex:1">'+
+            '<div style="font-size:13px;font-weight:800">'+t.num+'</div>'+
+            '<div style="font-size:12px;font-weight:600;margin-top:1px">'+t.titulo+'</div>'+
+            '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+(RQ[t.rid]?RQ[t.rid].name:t.rid)+'</div>'+
+          '</div>'+
+          '<div style="text-align:right">'+
+            '<div style="font-size:11px;font-weight:700;color:'+sc+'">'+tl+'</div>'+
+            (unread?'<div style="background:var(--er);color:#fff;border-radius:20px;padding:2px 8px;font-size:9px;font-weight:700;margin-top:3px">'+unread+' msgs nuevos</div>':'')+
+            (hasDocsPend?'<div style="background:var(--wn);color:#fff;border-radius:20px;padding:2px 8px;font-size:9px;font-weight:700;margin-top:3px">'+hasDocsPend+' doc(s) por validar</div>':'')+
+          '</div>'+
+        '</div>'+
+        '<div style="margin-top:8px;background:rgba(0,0,0,.05);border-radius:5px;height:5px;overflow:hidden">'+
+          '<div style="height:100%;background:'+sc+';width:'+(t.estado==='completada'?100:getSemaforoTarea(t)==='g'?70:getSemaforoTarea(t)==='a'?40:15)+'%"></div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+  return '<div class="ib ib-b"><span>✅</span><div>Aquí aparecen todas las tareas que Antonio Palacios te asignó. El semáforo cambia automáticamente según el tiempo restante.</div></div>'+
+    semBig+
+    '<div class="cd"><div class="ch"><div class="ctt">Mis tareas activas ('+misTareas.filter(function(t){return t.estado==='activa';}).length+')</div></div>'+taskRows+'</div>';
+}
+
 async function doLogin(){
   var em=document.getElementById('lem').value.trim();
   var pw=document.getElementById('lpw').value;
@@ -908,7 +1387,7 @@ function admView(id){
   try{localStorage.setItem('apcde_av',id);}catch(e){}
   document.querySelectorAll('#vAdmin .ni').forEach(function(n){n.classList.remove('on');});
   var btn=document.getElementById('adm-ni-'+id);if(btn)btn.classList.add('on');
-  var titles={dashboard:'Dashboard General',diagnostico:'Diagnóstico de resultados',clientes:'Gestión de Clientes',directores:'Directores',pipeline:'Pipeline · Nuevos clientes',newclient:'Nuevo Cliente / Empresa',newdir:'Nuevo Director','proj-dash':'Dashboard del Proyecto',requisitos:'Requisitos',deptos:'Departamentos',validar:'Validar Documentos',reporte:'Reporte de Estatus',diagnostico:'Diagnóstico de Resultados · Auditoría externa'};
+  var titles={dashboard:'Dashboard General',diagnostico:'Diagnóstico de resultados',clientes:'Gestión de Clientes',directores:'Directores',pipeline:'Pipeline · Nuevos clientes',newclient:'Nuevo Cliente / Empresa',newdir:'Nuevo Director','proj-dash':'Dashboard del Proyecto',requisitos:'Requisitos',deptos:'Departamentos',validar:'Validar Documentos',reporte:'Reporte de Estatus',diagnostico:'Diagnóstico de Resultados · Auditoría externa',tareas:'Sistema de Tareas'};
   document.getElementById('adm-title').textContent=(titles[id]||id)+(PJ&&['proj-dash','requisitos','deptos','validar','reporte'].includes(id)?' · '+PJ.nombre:'');
   var mc=document.getElementById('adm-mc');
   if(id==='dashboard') mc.innerHTML=vAdmDash();
@@ -923,7 +1402,11 @@ function admView(id){
   else if(id==='validar') mc.innerHTML=vValidar();
   else if(id==='reporte') mc.innerHTML=vReporte();
   else if(id==='diagnostico') mc.innerHTML=vDiagnostico();
+  else if(id==='tareas') mc.innerHTML=vTareas();
+  else if(id==='tarea-detail') mc.innerHTML=vTareaDetail(window._tareaCtx);
   else if(id==='diagnostico') mc.innerHTML=vDiagnostico();
+  else if(id==='tareas') mc.innerHTML=vTareas();
+  else if(id==='tarea-detail') mc.innerHTML=vTareaDetail(window._tareaCtx);
   else mc.innerHTML='<div class="cd"><div class="ctt">'+id+'</div></div>';
 }
 
@@ -1726,6 +2209,7 @@ function depView(id){
   else if(id==='dep-coms') mc.innerHTML=vDepComs();
   else if(id==='dep-inter') mc.innerHTML=vDepInter();
   else if(id==='dep-vcall') mc.innerHTML=vDepVcall();
+  else if(id==='dep-tareas') mc.innerHTML=vDepTareas();
   else if(id.startsWith('dep-req-')) openDepReq(id.replace('dep-req-',''));
   else mc.innerHTML='<div class="cd"><div class="ctt">'+id+'</div></div>';
 }
@@ -2253,6 +2737,15 @@ document.addEventListener('click',function(e){
   else if(a==='proponerdias'){ var rd=el.dataset.rid; var dt=el.dataset.dest; var diasEl=document.getElementById('inter-dias-'+rd+'-'+(dt||'').replace(/ /g,'_')); var horaEl=document.getElementById('inter-hora-'+rd+'-'+(dt||'').replace(/ /g,'_')); if(!diasEl||!diasEl.value){sT('Escribe los días');return;} var txt2=ME.r+' propone '+diasEl.value+' días'+(horaEl&&horaEl.value?' a las '+horaEl.value:''); if(!SEM[rd].comunicados)SEM[rd].comunicados=[]; SEM[rd].comunicados.unshift({txt:txt2,dest:dt,fecha:new Date().toLocaleString('es-MX'),de:ME.r}); addH(rd,txt2,ME.r,'#7C3AED','pl-p','Propuesta'); sT('Propuesta enviada a '+dt); openDepReq(rd); }
   else if(a==='delproj') delProj(parseInt(idx));
   else if(a==='guardarDiag') guardarDiag(id);
+  else if(a==='envmsg'){enviarMsgTarea(el.dataset.tid,el.dataset.rid);}
+  else if(a==='subtareadoc'){var f=document.getElementById('tarea-file-'+el.dataset.tid);if(f)f.click();}
+  else if(a==='valtarea'){validarTarea(el.dataset.tid,el.dataset.rid);}
+  else if(a==='comptarea'){completarTarea(el.dataset.tid,el.dataset.rid);}
+  else if(a==='valdoctarea'){validarDocTarea(el.dataset.tid,el.dataset.rid,el.dataset.nm);}
+  else if(a==='opentarea'){opentarea(el.dataset.tid,el.dataset.rid);}
+  else if(a==='clickntfile'){var f=document.getElementById('nt-file');if(f)f.click();}
+  else if(a==='hidetareaform'){var f=document.getElementById('nueva-tarea-form');if(f)f.style.display='none';}
+  else if(a==='newtarea'){admView('tareas');setTimeout(function(){var f=document.getElementById('nueva-tarea-form');if(f){f.style.display='block';var s=document.getElementById('nt-req');if(s)s.value=el.dataset.rid||s.options[0].value;}},100);}
   else if(a==='diagsys'){var sysId=el.dataset.sys;var el2=document.getElementById('ds-'+(sysId||'').replace(/[^a-z]/gi,''));if(el2)el2.classList.toggle('H');}
 });
 
