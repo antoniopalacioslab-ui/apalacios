@@ -1045,8 +1045,9 @@ function guardarNuevaTarea(){
   var fecha=document.getElementById('nt-fecha')&&document.getElementById('nt-fecha').value;
   var inst=document.getElementById('nt-inst')&&document.getElementById('nt-inst').value.trim();
   if(!rid||!titulo||!fecha){sT('Completa título, requisito y fecha límite');return;}
-  var t=crearTarea(rid,titulo,inst,_ntFiles.slice(),fecha,depto);
-  _ntFiles=[];
+  var docs=window._ntFiles||[];
+  var t=crearTarea(rid,titulo,inst,docs.slice(),fecha,depto||'todos');
+  window._ntFiles=[];
   addH(rid,'Tarea creada: '+t.num+' · '+titulo,ME.n,'#7C3AED','pl-p','Tarea');
   sT('✅ Tarea '+t.num+' creada para '+depto);
   admView('tareas');
@@ -1571,17 +1572,29 @@ function vNuevoDirector(){
     '<div class="fg2"><label class="fl2">Correo *</label><input class="fi2" id="nd2-email" type="email" placeholder="director@apalacios.com.mx"></div>'+
     '</div>'+
     '<div class="fr">'+
-    '<div class="fg2"><label class="fl2">Contraseña temporal *</label><div style="display:flex;gap:6px"><input class="fi2" id="nd2-pass" placeholder="Min. 6 caracteres" style="flex:1"><button class="btn bx bxs" onclick="genP(\'nd2-pass\')">Gen</button></div></div>'+
-    '<div class="fg2"><label class="fl2">Permiso: ver Diagnóstico</label>'+
-    '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;padding:8px 0"><input type="checkbox" id="nd2-diag" style="accent-color:var(--bl)"> Permitir ver el Diagnóstico de Resultados</label>'+
+    '<div class="fg2"><label class="fl2">Contraseña temporal *</label>'+
+      '<div style="display:flex;gap:6px"><input class="fi2" id="nd2-pass" placeholder="Min. 6 caracteres" style="flex:1"><button class="btn bx bxs" data-action="genpass" data-target="nd2-pass">Gen</button></div>'+
     '</div>'+
-    '<div class="fg2"><label class="fl2">Proyecto a asignar</label><select class="fsl" id="nd2-proj"><option value="">Sin asignar por ahora</option>'+PROJS.map(function(p){return '<option value="'+p.id+'">'+p.nombre+'</option>';}).join('')+'</select></div>'+
+    '<div class="fg2"><label class="fl2">Proyecto a asignar</label>'+
+      '<select class="fsl" id="nd2-proj"><option value="">Sin asignar por ahora</option>'+
+      PROJS.map(function(p){return '<option value="'+p.id+'">'+p.nombre+'</option>';}).join('')+
+      '</select>'+
+    '</div>'+
+    '</div>'+
+    '<div style="background:#F9FAFB;border:1px solid var(--bd);border-radius:9px;padding:12px;margin-bottom:12px">'+
+    '<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px">Permisos del director</div>'+
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:5px 0">'+
+      '<input type="checkbox" id="nd2-perm-diag" style="accent-color:var(--bl)">'+
+      '<div><div style="font-weight:600">Ver Diagnóstico de Resultados</div>'+
+      '<div style="font-size:10px;color:var(--t3)">Permite ver el módulo de auditoría externa</div></div>'+
+    '</label>'+
     '</div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
     '<button class="btn bx" data-action="admview" data-id="directores">Cancelar</button>'+
     '<button class="btn bp" onclick="guardarDirector()">✅ Crear director</button>'+
     '</div></div>';
 }
+
 
 function vProjDash(){
   if(!PJ) return '<div class="cd"><div class="ctt">Selecciona un proyecto del menú izquierdo.</div></div>';
@@ -2719,6 +2732,7 @@ document.addEventListener('click',function(e){
   else if(a==='clickntfile'){var f=document.getElementById('nt-file');if(f)f.click();}
   else if(a==='hidetareaform'){var f=document.getElementById('nueva-tarea-form');if(f)f.style.display='none';}
   else if(a==='newtarea'){admView('tareas');setTimeout(function(){var f=document.getElementById('nueva-tarea-form');if(f){f.style.display='block';var s=document.getElementById('nt-req');if(s)s.value=el.dataset.rid||s.options[0].value;}},100);}
+  else if(a==='genpass'){genP(el.dataset.target);}
   else if(a==='diagnapply'){
     var mid=el.dataset.id;
     var mej=document.getElementById('dg-mej-'+mid);
